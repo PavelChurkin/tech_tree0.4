@@ -167,14 +167,58 @@ def open_mhtml():
             webbrowser.open(fr"https://yandex.ru/search?text={tech_name}")
 
 
+# Вспомогательная функция для проверки наличия родителя в условиях
+def is_parent_in_conditions(parent_name, conditions):
+    """
+    Проверяет, является ли parent_name одним из условий технологии.
+    Поддерживает оба формата: старый (список строк) и новый (список путей).
+    """
+    if not conditions:
+        return False
+
+    if isinstance(conditions[0], str):
+        # Старый формат: простой список
+        return parent_name in conditions
+    elif isinstance(conditions[0], list):
+        # Новый формат: альтернативные пути
+        for path in conditions:
+            if parent_name in path:
+                return True
+        return False
+
+    return False
+
+
 # Функция для проверки доступности технологии
 def is_tech_available(tech_name):
     # Проверяем, все ли родители изучены
     for tech in data['технологии']:
         if tech['название'] == tech_name:
-            for parent in tech['условия']:
-                if not tech_flags.get(parent, False):
-                    return False
+            conditions = tech['условия']
+
+            # Если нет условий, технология доступна
+            if not conditions:
+                return True
+
+            # Проверка типа первого элемента для определения формата
+            if isinstance(conditions[0], str):
+                # Старый формат: все условия должны быть выполнены (AND логика)
+                for parent in conditions:
+                    if not tech_flags.get(parent, False):
+                        return False
+                return True
+            elif isinstance(conditions[0], list):
+                # Новый формат: хотя бы один путь должен быть полностью выполнен (OR логика между путями)
+                for path in conditions:
+                    path_completed = True
+                    for parent in path:
+                        if not tech_flags.get(parent, False):
+                            path_completed = False
+                            break
+                    if path_completed:
+                        return True
+                return False
+
     return True
 
 
@@ -215,8 +259,18 @@ def find_all_parents(tech_name):
         parents[current_tech] = level
         for tech in data['технологии']:
             if tech['название'] == current_tech:
-                for parent in tech['условия']:
-                    queue.append((parent, level + 1))
+                conditions = tech['условия']
+                # Обработка обоих форматов условий
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            queue.append((parent, level + 1))
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                queue.append((parent, level + 1))
                 break
     return parents
 
@@ -383,7 +437,7 @@ def update_visualization(tech_name, preserve_view=False):
                 for i, tech in enumerate(techs):
                     pos[tech] = (start_x + i * 8, level * 8)
                     for _tech in _previous_techs:
-                        if tech in dct_tech[_tech]['условия']:
+                        if is_parent_in_conditions(tech, dct_tech[_tech]['условия']):
                             G.add_edge(tech, _tech)
                 _previous_techs = techs
 
@@ -403,7 +457,7 @@ def update_visualization(tech_name, preserve_view=False):
                 for i, tech in enumerate(techs):
                     pos[tech] = (start_x + i * 8, -level * 8)
                     for _tech in _previous_techs:
-                        if _tech in dct_tech[tech]['условия']:
+                        if is_parent_in_conditions(_tech, dct_tech[tech]['условия']):
                             G.add_edge(_tech, tech)
                 _previous_techs = techs
 
@@ -471,8 +525,17 @@ def update_visualization(tech_name, preserve_view=False):
             # Добавляем все технологии и их связи
             for tech in data['технологии']:
                 G.add_node(tech['название'])
-                for parent in tech['условия']:
-                    G.add_edge(parent, tech['название'])
+                conditions = tech['условия']
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            G.add_edge(parent, tech['название'])
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                G.add_edge(parent, tech['название'])
 
             pos = nx.spring_layout(G, seed=42)
 
