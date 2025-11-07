@@ -911,26 +911,29 @@ class EditorWindow:
 
     def svg_to_png(self, svg_data):
         """Конвертирует SVG данные в PNG используя PIL и встроенные возможности"""
+        # Пытаемся использовать cairosvg если доступен
         try:
-            # Пытаемся использовать cairosvg если доступен
             import cairosvg
             png_data = cairosvg.svg2png(bytestring=svg_data)
             return png_data
-        except ImportError:
-            # Если cairosvg недоступен, сохраняем SVG во временный файл
-            # и конвертируем его в PNG с помощью PIL (если поддерживается)
-            try:
-                # PIL может открывать некоторые SVG через внешние библиотеки
-                from PIL import Image
-                img = Image.open(BytesIO(svg_data))
-                png_buffer = BytesIO()
-                img.save(png_buffer, format='PNG')
-                return png_buffer.getvalue()
-            except Exception as e:
-                print(f"Прямая конвертация SVG->PNG не удалась: {e}")
-                # В качестве последней попытки - сохраняем SVG как есть и пытаемся
-                # использовать внешние инструменты или просто отдаем PNG fallback
-                raise Exception("SVG конвертация требует cairosvg: pip install cairosvg")
+        except (ImportError, OSError) as e:
+            # Cairosvg недоступен или Cairo библиотека не установлена
+            # Это нормальная ситуация, особенно на Windows
+            pass
+        except Exception:
+            # Другие ошибки cairosvg - пробуем fallback
+            pass
+
+        # Пытаемся использовать PIL (работает только для простых SVG)
+        try:
+            from PIL import Image
+            img = Image.open(BytesIO(svg_data))
+            png_buffer = BytesIO()
+            img.save(png_buffer, format='PNG')
+            return png_buffer.getvalue()
+        except Exception:
+            # PIL не может обработать SVG - используем PNG fallback
+            raise Exception("SVG конвертация недоступна")
 
     def render_plantuml(self, plantuml_code):
         try:
@@ -946,19 +949,37 @@ class EditorWindow:
                         f.write(plantuml_code)
                         temp_puml = f.name
 
-                    # Генерируем PNG с помощью локального PlantUML
-                    temp_png = temp_puml.replace('.puml', '.png')
+                    # Генерируем SVG с помощью локального PlantUML (SVG не имеет ограничений по ширине)
+                    temp_svg = temp_puml.replace('.puml', '.svg')
                     result = subprocess.run(
-                        ['java', '-jar', plantuml_jar, '-tpng', temp_puml],
+                        ['java', '-jar', plantuml_jar, '-tsvg', temp_puml],
                         capture_output=True,
                         timeout=30
                     )
 
-                    if result.returncode == 0 and os.path.exists(temp_png):
-                        with open(temp_png, 'rb') as f:
-                            image_data = f.read()
-                        os.unlink(temp_png)
-                        print("Используется локальный PlantUML (офлайн режим)")
+                    if result.returncode == 0 and os.path.exists(temp_svg):
+                        with open(temp_svg, 'rb') as f:
+                            svg_data = f.read()
+                        os.unlink(temp_svg)
+
+                        # Конвертируем SVG в PNG для отображения в Tkinter
+                        try:
+                            image_data = self.svg_to_png(svg_data)
+                            print("Используется локальный PlantUML SVG (офлайн режим, без ограничений по ширине)")
+                        except Exception as e:
+                            print(f"SVG конвертация не удалась: {e}")
+                            # Если конвертация не удалась, пробуем сгенерировать PNG напрямую как fallback
+                            temp_png = temp_puml.replace('.puml', '.png')
+                            result = subprocess.run(
+                                ['java', '-jar', plantuml_jar, '-tpng', temp_puml],
+                                capture_output=True,
+                                timeout=30
+                            )
+                            if result.returncode == 0 and os.path.exists(temp_png):
+                                with open(temp_png, 'rb') as f:
+                                    image_data = f.read()
+                                os.unlink(temp_png)
+                                print("Используется локальный PlantUML PNG (офлайн режим, может быть обрезан для широких диаграмм)")
 
                     os.unlink(temp_puml)
                 except Exception as e:
@@ -978,16 +999,25 @@ class EditorWindow:
 
                     # Конвертируем SVG в PNG используя PIL
                     # SVG не имеет ограничений по ширине
-                    image_data = self.svg_to_png(svg_data)
-                    print("Используется онлайн PlantUML SVG")
+                    try:
+                        image_data = self.svg_to_png(svg_data)
+                        print("Используется онлайн PlantUML SVG (без ограничений по ширине)")
+                    except Exception as svg_error:
+                        # SVG конвертация не удалась - используем PNG fallback
+                        # Не печатаем подробности ошибки, чтобы не пугать пользователя
+                        print("Примечание: SVG конвертация недоступна, используется PNG формат")
+                        url = f"https://www.plantuml.com/plantuml/png/{encoded}"
+                        with urllib.request.urlopen(url, timeout=30) as response:
+                            image_data = response.read()
+                        print("Используется онлайн PlantUML PNG (может быть обрезан для очень широких диаграмм)")
                 except Exception as e:
-                    print(f"SVG рендеринг не удался: {e}, пробуем PNG...")
-                    # Fallback на PNG если SVG не работает
+                    print(f"Онлайн PlantUML не удался: {e}")
+                    # Последний fallback - пробуем прямой PNG
                     url = f"https://www.plantuml.com/plantuml/png/{encoded}"
                     print(f"PlantUML PNG URL: {url}")
                     with urllib.request.urlopen(url, timeout=30) as response:
                         image_data = response.read()
-                    print("Используется онлайн PlantUML PNG (может быть обрезан)")
+                    print("Используется онлайн PlantUML PNG (может быть обрезан для широких диаграмм)")
 
             # Сохраняем оригинальное изображение
             self.original_image = Image.open(BytesIO(image_data))

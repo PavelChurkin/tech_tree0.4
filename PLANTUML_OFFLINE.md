@@ -34,14 +34,40 @@
 
 #### Вариант 2: Улучшенный онлайн режим (SVG)
 
-Если вы не можете установить Java, программа автоматически будет использовать SVG формат вместо PNG:
+Если вы не можете установить Java, программа автоматически будет использовать SVG формат вместо PNG. **SVG формат не имеет ограничений по ширине**, поэтому широкие диаграммы будут отображаться полностью.
 
-1. Установите библиотеку для конвертации SVG (опционально, но рекомендуется):
-   ```bash
-   pip install cairosvg
-   ```
+**Важно:** Для отображения SVG в программе используется автоматическая конвертация:
+- Программа пытается использовать `cairosvg` (если установлен)
+- Если `cairosvg` недоступен, используется PNG fallback
 
-2. Если cairosvg недоступен, программа попробует другие методы конвертации или откатится на PNG
+**Установка cairosvg (опционально):**
+
+Установка `cairosvg` улучшает качество конвертации SVG, но требует дополнительных системных библиотек:
+
+**Windows:**
+```bash
+pip install cairosvg
+```
+⚠️ **Примечание для Windows:** После установки `pip install cairosvg` также требуется установить GTK+ runtime с Cairo библиотеками:
+- Скачайте установщик: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+- Запустите установщик и следуйте инструкциям
+- Перезапустите программу
+
+Если не устанавливать GTK+, программа автоматически будет использовать PNG формат (который может обрезать очень широкие диаграммы).
+
+**Linux:**
+```bash
+sudo apt install libcairo2-dev pkg-config python3-dev  # Ubuntu/Debian
+pip install cairosvg
+```
+
+**macOS:**
+```bash
+brew install cairo pkg-config
+pip install cairosvg
+```
+
+**Без cairosvg:** Программа автоматически откатится на PNG формат, который работает всегда, но может обрезать очень широкие диаграммы.
 
 ### Проверка режима работы
 
@@ -86,14 +112,40 @@ The program now supports three rendering modes (in priority order):
 
 #### Option 2: Enhanced Online Mode (SVG)
 
-If you cannot install Java, the program will automatically use SVG format instead of PNG:
+If you cannot install Java, the program will automatically use SVG format instead of PNG. **SVG format has no width limitations**, so wide diagrams will display fully.
 
-1. Install SVG conversion library (optional but recommended):
-   ```bash
-   pip install cairosvg
-   ```
+**Important:** To display SVG in the program, automatic conversion is used:
+- The program tries to use `cairosvg` (if installed)
+- If `cairosvg` is unavailable, it falls back to PNG
 
-2. If cairosvg is unavailable, the program will try other conversion methods or fall back to PNG
+**Installing cairosvg (optional):**
+
+Installing `cairosvg` improves SVG conversion quality, but requires additional system libraries:
+
+**Windows:**
+```bash
+pip install cairosvg
+```
+⚠️ **Note for Windows:** After installing `pip install cairosvg`, you also need to install GTK+ runtime with Cairo libraries:
+- Download installer: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+- Run the installer and follow instructions
+- Restart the program
+
+If you don't install GTK+, the program will automatically use PNG format (which may crop very wide diagrams).
+
+**Linux:**
+```bash
+sudo apt install libcairo2-dev pkg-config python3-dev  # Ubuntu/Debian
+pip install cairosvg
+```
+
+**macOS:**
+```bash
+brew install cairo pkg-config
+pip install cairosvg
+```
+
+**Without cairosvg:** The program will automatically fall back to PNG format, which always works but may crop very wide diagrams.
 
 ### Checking Current Mode
 
