@@ -285,7 +285,8 @@ def find_all_children(tech_name):
             continue
         children[current_tech] = level
         for tech in data['технологии']:
-            if current_tech in tech['условия']:
+            # Проверяем, является ли current_tech родителем для tech
+            if is_parent_in_conditions(current_tech, tech['условия']):
                 queue.append((tech['название'], level + 1))
     return children
 
@@ -946,9 +947,19 @@ class EditorWindow:
         # Добавляем связи
         for node in all_nodes:
             if node in self.dct_tech:
-                for parent in self.dct_tech[node]['условия']:
-                    if parent in all_nodes:
-                        plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
+                conditions = self.dct_tech[node]['условия']
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            if parent in all_nodes:
+                                plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                if parent in all_nodes:
+                                    plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
 
         plantuml_code += "@enduml"
 
@@ -1038,8 +1049,18 @@ class EditorWindow:
         self.desc_text.insert(1.0, tech_data.get('описание', ''))
 
         self.conditions_listbox.delete(0, tk.END)
-        for condition in tech_data.get('условия', []):
-            self.conditions_listbox.insert(tk.END, condition)
+        conditions = tech_data.get('условия', [])
+        if conditions:
+            if isinstance(conditions[0], str):
+                # Старый формат: простой список
+                for condition in conditions:
+                    self.conditions_listbox.insert(tk.END, condition)
+            elif isinstance(conditions[0], list):
+                # Новый формат: альтернативные пути
+                # Отображаем пути в формате: (Условие1, Условие2)
+                for path in conditions:
+                    path_str = "(" + ", ".join(path) + ")"
+                    self.conditions_listbox.insert(tk.END, path_str)
 
         # Включаем события обратно
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
@@ -1056,7 +1077,34 @@ class EditorWindow:
 
         new_name = self.name_entry.get().strip()
         description = self.desc_text.get(1.0, tk.END).strip()
-        conditions = list(self.conditions_listbox.get(0, tk.END))
+        conditions_raw = list(self.conditions_listbox.get(0, tk.END))
+
+        # Парсим условия: если начинаются с '(', это группа (путь)
+        conditions = []
+        for cond in conditions_raw:
+            cond = cond.strip()
+            if cond.startswith('(') and cond.endswith(')'):
+                # Это альтернативный путь: разбиваем по запятым
+                path_content = cond[1:-1]  # Убираем скобки
+                path = [c.strip() for c in path_content.split(',') if c.strip()]
+                conditions.append(path)
+            else:
+                # Это обычное условие
+                conditions.append(cond)
+
+        # Определяем формат: если все элементы строки, то старый формат
+        # Если хотя бы один элемент список, то новый формат
+        has_paths = any(isinstance(c, list) for c in conditions)
+        if has_paths:
+            # Преобразуем все в новый формат (список путей)
+            normalized_conditions = []
+            for c in conditions:
+                if isinstance(c, list):
+                    normalized_conditions.append(c)
+                else:
+                    # Одиночное условие становится путем из одного элемента
+                    normalized_conditions.append([c])
+            conditions = normalized_conditions
 
         # Обновляем данные
         if self.current_tech in self.dct_tech:
@@ -1071,8 +1119,13 @@ class EditorWindow:
                 for tech in self.data['технологии']:
                     if tech['название'] == self.current_tech:
                         tech['название'] = new_name
-                    # Обновляем условия в других технологиях
-                    tech['условия'] = [new_name if cond == self.current_tech else cond for cond in tech['условия']]
+                    # Обновляем условия в других технологиях (старый и новый формат)
+                    old_conditions = tech['условия']
+                    if old_conditions:
+                        if isinstance(old_conditions[0], str):
+                            tech['условия'] = [new_name if cond == self.current_tech else cond for cond in old_conditions]
+                        elif isinstance(old_conditions[0], list):
+                            tech['условия'] = [[new_name if cond == self.current_tech else cond for cond in path] for path in old_conditions]
 
                 self.current_tech = new_name
                 self.update_tech_list()
@@ -1083,8 +1136,35 @@ class EditorWindow:
             tech_data['условия'] = conditions
 
     def add_condition(self):
-        condition = simpledialog.askstring("Добавить условие", "Введите название технологии-условия:")
+        condition = simpledialog.askstring(
+            "Добавить условие",
+            "Введите название технологии-условия:\n"
+            "Для альтернативного пути используйте скобки:\n"
+            "(Технология1, Технология2, ...)"
+        )
         if condition:
+            condition = condition.strip()
+            # Проверка наличия технологий в древе
+            if condition.startswith('(') and condition.endswith(')'):
+                # Это путь: проверяем каждую технологию в пути
+                path_content = condition[1:-1]
+                techs = [t.strip() for t in path_content.split(',') if t.strip()]
+                invalid_techs = [t for t in techs if t not in self.dct_tech]
+                if invalid_techs:
+                    messagebox.showerror(
+                        "Ошибка",
+                        f"Следующие технологии не найдены в древе:\n" + "\n".join(invalid_techs)
+                    )
+                    return
+            else:
+                # Это одиночная технология
+                if condition not in self.dct_tech:
+                    messagebox.showerror(
+                        "Ошибка",
+                        f"Технология '{condition}' не найдена в древе технологий!"
+                    )
+                    return
+
             self.conditions_listbox.insert(tk.END, condition)
             self.on_data_change()
 
