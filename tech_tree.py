@@ -862,6 +862,10 @@ class EditorWindow:
                                               command=self.add_condition)
         self.add_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
 
+        self.edit_condition_button = tk.Button(self.conditions_button_frame, text="Редактировать условие",
+                                               command=self.edit_condition)
+        self.edit_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
+
         self.remove_condition_button = tk.Button(self.conditions_button_frame, text="Удалить условие",
                                                  command=self.remove_condition)
         self.remove_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
@@ -1172,6 +1176,66 @@ class EditorWindow:
         if self.conditions_listbox.curselection():
             self.conditions_listbox.delete(self.conditions_listbox.curselection()[0])
             self.on_data_change()
+
+    def edit_condition(self):
+        """Редактирование выбранного условия"""
+        if not self.conditions_listbox.curselection():
+            messagebox.showwarning("Предупреждение", "Выберите условие для редактирования")
+            return
+
+        # Получаем индекс и текущее значение
+        index = self.conditions_listbox.curselection()[0]
+        current_value = self.conditions_listbox.get(index)
+
+        # Запрашиваем новое значение
+        new_value = simpledialog.askstring(
+            "Редактировать условие",
+            "Введите новое значение условия:\n"
+            "Для альтернативного пути используйте скобки:\n"
+            "(Технология1, Технология2, ...)",
+            initialvalue=current_value
+        )
+
+        if new_value is None:  # Пользователь отменил действие
+            return
+
+        new_value = new_value.strip()
+
+        # Проверка наличия технологий в древе
+        if new_value.startswith('(') and new_value.endswith(')'):
+            # Это путь: проверяем каждую технологию в пути
+            path_content = new_value[1:-1]
+            techs = [t.strip() for t in path_content.split(',') if t.strip()]
+
+            if not techs:
+                messagebox.showerror("Ошибка", "Путь не может быть пустым!")
+                return
+
+            invalid_techs = [t for t in techs if t not in self.dct_tech]
+            if invalid_techs:
+                messagebox.showerror(
+                    "Ошибка",
+                    f"Следующие технологии не найдены в древе:\n" + "\n".join(invalid_techs)
+                )
+                return
+        else:
+            # Это одиночная технология
+            if not new_value:
+                messagebox.showerror("Ошибка", "Условие не может быть пустым!")
+                return
+
+            if new_value not in self.dct_tech:
+                messagebox.showerror(
+                    "Ошибка",
+                    f"Технология '{new_value}' не найдена в древе технологий!"
+                )
+                return
+
+        # Обновляем значение в списке
+        self.conditions_listbox.delete(index)
+        self.conditions_listbox.insert(index, new_value)
+        self.conditions_listbox.selection_set(index)
+        self.on_data_change()
 
     def new_technology(self):
         name = simpledialog.askstring("Новая технология", "Введите название технологии:")

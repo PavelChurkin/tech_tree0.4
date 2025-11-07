@@ -256,9 +256,99 @@ def test_save_alternative_paths(data):
         return False
 
 
+def test_edit_condition():
+    """Тест редактирования условий"""
+    print("\nТест 5: Редактирование условий")
+
+    dct_tech = {
+        "Вода": {},
+        "Электричество": {},
+        "Электролиз": {},
+        "Метан": {},
+        "Паровая конверсия": {},
+        "Катализатор": {},
+        "Водород": {},
+        "Биомасса": {},
+    }
+
+    # Тест 1: Редактирование простого условия на другое простое условие
+    print("  Тест 5.1: Редактирование простого условия")
+    condition = "Вода"
+    new_condition = "Биомасса"
+
+    if new_condition in dct_tech:
+        print(f"    ✅ Изменение '{condition}' → '{new_condition}'")
+        test1_passed = True
+    else:
+        print(f"    ❌ Ошибка валидации для '{new_condition}'")
+        test1_passed = False
+
+    # Тест 2: Редактирование простого условия на составное (путь)
+    print("  Тест 5.2: Редактирование простого условия на составной путь")
+    condition = "Вода"
+    new_condition = "(Электролиз, Вода)"
+
+    path_content = new_condition[1:-1]
+    techs = [t.strip() for t in path_content.split(',') if t.strip()]
+    invalid_techs = [t for t in techs if t not in dct_tech]
+
+    if not invalid_techs:
+        print(f"    ✅ Изменение '{condition}' → '{new_condition}'")
+        test2_passed = True
+    else:
+        print(f"    ❌ Ошибка валидации для '{new_condition}': {invalid_techs}")
+        test2_passed = False
+
+    # Тест 3: Редактирование составного пути на другой составной путь
+    print("  Тест 5.3: Редактирование составного пути")
+    condition = "(Электролиз, Вода)"
+    new_condition = "(Паровая конверсия, Метан, Катализатор)"
+
+    path_content = new_condition[1:-1]
+    techs = [t.strip() for t in path_content.split(',') if t.strip()]
+    invalid_techs = [t for t in techs if t not in dct_tech]
+
+    if not invalid_techs:
+        print(f"    ✅ Изменение '{condition}' → '{new_condition}'")
+        test3_passed = True
+    else:
+        print(f"    ❌ Ошибка валидации для '{new_condition}': {invalid_techs}")
+        test3_passed = False
+
+    # Тест 4: Попытка редактирования с несуществующей технологией (должно провалиться)
+    print("  Тест 5.4: Валидация при редактировании с несуществующей технологией")
+    condition = "Вода"
+    new_condition = "(Вода, Несуществующая)"
+
+    path_content = new_condition[1:-1]
+    techs = [t.strip() for t in path_content.split(',') if t.strip()]
+    invalid_techs = [t for t in techs if t not in dct_tech]
+
+    if invalid_techs:
+        print(f"    ✅ Корректно отклонено: '{new_condition}' (не найдено: {invalid_techs})")
+        test4_passed = True
+    else:
+        print(f"    ❌ Ошибка: '{new_condition}' должно было быть отклонено")
+        test4_passed = False
+
+    # Тест 5: Редактирование пути на простое условие
+    print("  Тест 5.5: Редактирование составного пути на простое условие")
+    condition = "(Электролиз, Вода)"
+    new_condition = "Электролиз"
+
+    if new_condition in dct_tech:
+        print(f"    ✅ Изменение '{condition}' → '{new_condition}'")
+        test5_passed = True
+    else:
+        print(f"    ❌ Ошибка валидации для '{new_condition}'")
+        test5_passed = False
+
+    return test1_passed and test2_passed and test3_passed and test4_passed and test5_passed
+
+
 def test_validation():
     """Тест валидации технологий"""
-    print("\nТест 5: Валидация существования технологий")
+    print("\nТест 6: Валидация существования технологий")
 
     dct_tech = {
         "Вода": {},
@@ -329,6 +419,7 @@ def main():
     results.append(("Парсинг условий", test_parse_conditions()))
     results.append(("Отображение путей", test_load_and_display_alternative_paths(data)))
     results.append(("Сохранение путей", test_save_alternative_paths(data)))
+    results.append(("Редактирование условий", test_edit_condition()))
     results.append(("Валидация", test_validation()))
 
     # Итоги
