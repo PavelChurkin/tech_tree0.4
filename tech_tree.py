@@ -15,6 +15,8 @@ from PIL import Image, ImageTk
 import io
 import zlib
 import base64
+import xml.etree.ElementTree as ET
+from io import BytesIO
 
 # Путь к текущей директории
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -167,14 +169,56 @@ def open_mhtml():
             webbrowser.open(fr"https://yandex.ru/search?text={tech_name}")
 
 
+# Вспомогательная функция для проверки наличия родителя в условиях
+def is_parent_in_conditions(parent_name, conditions):
+    """
+    Проверяет, является ли parent_name одним из условий технологии.
+    Поддерживает оба формата: старый (список строк) и новый (список путей).
+    """
+    if not conditions:
+        return False
+
+    if isinstance(conditions[0], str):
+        # Старый формат: простой список
+        return parent_name in conditions
+    elif isinstance(conditions[0], list):
+        # Новый формат: альтернативные пути
+        for path in conditions:
+            if parent_name in path:
+                return True
+        return False
+    return False
+
+
 # Функция для проверки доступности технологии
 def is_tech_available(tech_name):
-    # Проверяем, все ли родители изучены
+
     for tech in data['технологии']:
         if tech['название'] == tech_name:
-            for parent in tech['условия']:
-                if not tech_flags.get(parent, False):
-                    return False
+            conditions = tech['условия']
+
+            # Если нет условий, технология доступна
+            if not conditions:
+                return True
+
+            # Проверка типа первого элемента для определения формата
+            if isinstance(conditions[0], str):
+                # Старый формат: все условия должны быть выполнены (AND логика)
+                for parent in conditions:
+                    if not tech_flags.get(parent, False):
+                        return False
+                return True
+            elif isinstance(conditions[0], list):
+                # Новый формат: хотя бы один путь должен быть полностью выполнен (OR логика между путями)
+                for path in conditions:
+                    path_completed = True
+                    for parent in path:
+                        if not tech_flags.get(parent, False):
+                            path_completed = False
+                            break
+                    if path_completed:
+                        return True
+                return False
     return True
 
 
@@ -215,8 +259,18 @@ def find_all_parents(tech_name):
         parents[current_tech] = level
         for tech in data['технологии']:
             if tech['название'] == current_tech:
-                for parent in tech['условия']:
-                    queue.append((parent, level + 1))
+                conditions = tech['условия']
+                # Обработка обоих форматов условий
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            queue.append((parent, level + 1))
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                queue.append((parent, level + 1))
                 break
     return parents
 
@@ -231,7 +285,8 @@ def find_all_children(tech_name):
             continue
         children[current_tech] = level
         for tech in data['технологии']:
-            if current_tech in tech['условия']:
+            # Проверяем, является ли current_tech родителем для tech
+            if is_parent_in_conditions(current_tech, tech['условия']):
                 queue.append((tech['название'], level + 1))
     return children
 
@@ -383,7 +438,7 @@ def update_visualization(tech_name, preserve_view=False):
                 for i, tech in enumerate(techs):
                     pos[tech] = (start_x + i * 8, level * 8)
                     for _tech in _previous_techs:
-                        if tech in dct_tech[_tech]['условия']:
+                        if is_parent_in_conditions(tech, dct_tech[_tech]['условия']):
                             G.add_edge(tech, _tech)
                 _previous_techs = techs
 
@@ -403,7 +458,7 @@ def update_visualization(tech_name, preserve_view=False):
                 for i, tech in enumerate(techs):
                     pos[tech] = (start_x + i * 8, -level * 8)
                     for _tech in _previous_techs:
-                        if _tech in dct_tech[tech]['условия']:
+                        if is_parent_in_conditions(_tech, dct_tech[tech]['условия']):
                             G.add_edge(_tech, tech)
                 _previous_techs = techs
 
@@ -471,8 +526,17 @@ def update_visualization(tech_name, preserve_view=False):
             # Добавляем все технологии и их связи
             for tech in data['технологии']:
                 G.add_node(tech['название'])
-                for parent in tech['условия']:
-                    G.add_edge(parent, tech['название'])
+                conditions = tech['условия']
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            G.add_edge(parent, tech['название'])
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                G.add_edge(parent, tech['название'])
 
             pos = nx.spring_layout(G, seed=42)
 
@@ -798,6 +862,10 @@ class EditorWindow:
                                               command=self.add_condition)
         self.add_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
 
+        self.edit_condition_button = tk.Button(self.conditions_button_frame, text="Редактировать условие",
+                                               command=self.edit_condition)
+        self.edit_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
+
         self.remove_condition_button = tk.Button(self.conditions_button_frame, text="Удалить условие",
                                                  command=self.remove_condition)
         self.remove_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
@@ -883,9 +951,19 @@ class EditorWindow:
         # Добавляем связи
         for node in all_nodes:
             if node in self.dct_tech:
-                for parent in self.dct_tech[node]['условия']:
-                    if parent in all_nodes:
-                        plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
+                conditions = self.dct_tech[node]['условия']
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат: простой список родителей
+                        for parent in conditions:
+                            if parent in all_nodes:
+                                plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
+                    elif isinstance(conditions[0], list):
+                        # Новый формат: альтернативные пути
+                        for path in conditions:
+                            for parent in path:
+                                if parent in all_nodes:
+                                    plantuml_code += f'{parent.replace(" ", "_").replace("-", "_")} --> {node.replace(" ", "_").replace("-", "_")}\n'
 
         plantuml_code += "@enduml"
 
@@ -907,20 +985,120 @@ class EditorWindow:
         # print(encoded)
         return encoded
 
+    def svg_to_png(self, svg_data):
+        """Конвертирует SVG данные в PNG используя PIL и встроенные возможности"""
+        # Пытаемся использовать cairosvg если доступен
+        try:
+            import cairosvg
+            png_data = cairosvg.svg2png(bytestring=svg_data)
+            return png_data
+        except (ImportError, OSError) as e:
+            # Cairosvg недоступен или Cairo библиотека не установлена
+            # Это нормальная ситуация, особенно на Windows
+            pass
+        except Exception:
+            # Другие ошибки cairosvg - пробуем fallback
+            pass
+
+        # Пытаемся использовать PIL (работает только для простых SVG)
+        try:
+            from PIL import Image
+            img = Image.open(BytesIO(svg_data))
+            png_buffer = BytesIO()
+            img.save(png_buffer, format='PNG')
+            return png_buffer.getvalue()
+        except Exception:
+            # PIL не может обработать SVG - используем PNG fallback
+            raise Exception("SVG конвертация недоступна")
+
     def render_plantuml(self, plantuml_code):
         try:
-            # Кодируем PlantUML код для URL
-            encoded = self.encode_plantuml(plantuml_code)
+            """# Кодируем PlantUML код для URL
+            encoded = self.encode_plantuml(plantuml_code)"""
 
-            # Формируем URL для онлайн-рендеринга
-            url = f"https://www.plantuml.com/plantuml/png/{encoded}"
-            print(url)
-            # Загружаем изображение
-            with urllib.request.urlopen(url) as response:
-                image_data = response.read()
+            # Пробуем сначала локальный PlantUML, затем онлайн SVG, затем онлайн PNG
+            image_data = None
+
+            # Попытка использовать локальный PlantUML JAR файл
+            plantuml_jar = os.path.join(BASE_DIR, 'plantuml.jar')
+            if os.path.exists(plantuml_jar):
+                try:
+                    # Создаем временный файл для PlantUML кода
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.puml', delete=False, encoding='utf-8') as f:
+                        f.write(plantuml_code)
+                        temp_puml = f.name
+
+                    # Генерируем SVG с помощью локального PlantUML (SVG не имеет ограничений по ширине)
+                    temp_svg = temp_puml.replace('.puml', '.svg')
+                    result = subprocess.run(
+                        ['java', '-jar', plantuml_jar, '-tsvg', temp_puml],
+                        capture_output=True,
+                        timeout=30
+                    )
+                    if result.returncode == 0 and os.path.exists(temp_svg):
+                        with open(temp_svg, 'rb') as f:
+                            svg_data = f.read()
+                        os.unlink(temp_svg)
+
+                        # Конвертируем SVG в PNG для отображения в Tkinter
+                        try:
+                            image_data = self.svg_to_png(svg_data)
+                            print("Используется локальный PlantUML SVG (офлайн режим, без ограничений по ширине)")
+                        except Exception as e:
+                            print(f"SVG конвертация не удалась: {e}")
+                            # Если конвертация не удалась, пробуем сгенерировать PNG напрямую как fallback
+                            temp_png = temp_puml.replace('.puml', '.png')
+                            result = subprocess.run(
+                                ['java', '-jar', plantuml_jar, '-tpng', temp_puml],
+                                capture_output=True,
+                                timeout=30
+                            )
+                            if result.returncode == 0 and os.path.exists(temp_png):
+                                with open(temp_png, 'rb') as f:
+                                    image_data = f.read()
+                                os.unlink(temp_png)
+                                print("Используется локальный PlantUML PNG (офлайн режим, может быть обрезан для широких диаграмм)")
+
+                    os.unlink(temp_puml)
+                except Exception as e:
+                    print(f"Локальный PlantUML не удался: {e}")
+
+            # Если локальный PlantUML не сработал, используем онлайн SVG
+            if image_data is None:
+                encoded = self.encode_plantuml(plantuml_code)
+
+                # Используем SVG формат вместо PNG для избежания ограничений по ширине
+                url = f"https://www.plantuml.com/plantuml/svg/{encoded}"
+                print(f"PlantUML SVG URL: {url}")
+
+                try:
+                    with urllib.request.urlopen(url, timeout=30) as response:
+                        svg_data = response.read()
+
+                    # Конвертируем SVG в PNG используя PIL
+                    # SVG не имеет ограничений по ширине
+                    try:
+                        image_data = self.svg_to_png(svg_data)
+                        print("Используется онлайн PlantUML SVG (без ограничений по ширине)")
+                    except Exception as svg_error:
+                        # SVG конвертация не удалась - используем PNG fallback
+                        # Не печатаем подробности ошибки, чтобы не пугать пользователя
+                        print("Примечание: SVG конвертация недоступна, используется PNG формат")
+                        url = f"https://www.plantuml.com/plantuml/png/{encoded}"
+                        with urllib.request.urlopen(url, timeout=30) as response:
+                            image_data = response.read()
+                        print("Используется онлайн PlantUML PNG (может быть обрезан для очень широких диаграмм)")
+                except Exception as e:
+                    print(f"Онлайн PlantUML не удался: {e}")
+                    # Последний fallback - пробуем прямой PNG
+                    url = f"https://www.plantuml.com/plantuml/svg/{encoded}"
+                    print(f"PlantUML PNG URL: {url}")
+                    with urllib.request.urlopen(url, timeout=30) as response:
+                        image_data = response.read()
+                    print("Используется онлайн PlantUML PNG (может быть обрезан для широких диаграмм)")
 
             # Сохраняем оригинальное изображение
-            self.original_image = Image.open(io.BytesIO(image_data))
+            self.original_image = Image.open(BytesIO(image_data))
 
             # Отображаем изображение в полном размере
             self.photo = ImageTk.PhotoImage(self.original_image)
@@ -935,6 +1113,7 @@ class EditorWindow:
 
             # Создаем изображение на canvas
             self.image_id = self.viz_canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
+            print(f"Изображение отрендерено: {self.original_image.width}x{self.original_image.height} пикселей")
 
         except Exception as e:
             # Если онлайн-рендеринг не удался, показываем код
@@ -975,8 +1154,18 @@ class EditorWindow:
         self.desc_text.insert(1.0, tech_data.get('описание', ''))
 
         self.conditions_listbox.delete(0, tk.END)
-        for condition in tech_data.get('условия', []):
-            self.conditions_listbox.insert(tk.END, condition)
+        conditions = tech_data.get('условия', [])
+        if conditions:
+            if isinstance(conditions[0], str):
+                # Старый формат: простой список
+                for condition in conditions:
+                    self.conditions_listbox.insert(tk.END, condition)
+            elif isinstance(conditions[0], list):
+                # Новый формат: альтернативные пути
+                # Отображаем пути в формате: (Условие1, Условие2)
+                for path in conditions:
+                    path_str = "(" + ", ".join(path) + ")"
+                    self.conditions_listbox.insert(tk.END, path_str)
 
         # Включаем события обратно
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
@@ -993,7 +1182,34 @@ class EditorWindow:
 
         new_name = self.name_entry.get().strip()
         description = self.desc_text.get(1.0, tk.END).strip()
-        conditions = list(self.conditions_listbox.get(0, tk.END))
+        conditions_raw = list(self.conditions_listbox.get(0, tk.END))
+
+        # Парсим условия: если начинаются с '(', это группа (путь)
+        conditions = []
+        for cond in conditions_raw:
+            cond = cond.strip()
+            if cond.startswith('(') and cond.endswith(')'):
+                # Это альтернативный путь: разбиваем по запятым
+                path_content = cond[1:-1]  # Убираем скобки
+                path = [c.strip() for c in path_content.split(',') if c.strip()]
+                conditions.append(path)
+            else:
+                # Это обычное условие
+                conditions.append(cond)
+
+        # Определяем формат: если все элементы строки, то старый формат
+        # Если хотя бы один элемент список, то новый формат
+        has_paths = any(isinstance(c, list) for c in conditions)
+        if has_paths:
+            # Преобразуем все в новый формат (список путей)
+            normalized_conditions = []
+            for c in conditions:
+                if isinstance(c, list):
+                    normalized_conditions.append(c)
+                else:
+                    # Одиночное условие становится путем из одного элемента
+                    normalized_conditions.append([c])
+            conditions = normalized_conditions
 
         # Обновляем данные
         if self.current_tech in self.dct_tech:
@@ -1008,8 +1224,13 @@ class EditorWindow:
                 for tech in self.data['технологии']:
                     if tech['название'] == self.current_tech:
                         tech['название'] = new_name
-                    # Обновляем условия в других технологиях
-                    tech['условия'] = [new_name if cond == self.current_tech else cond for cond in tech['условия']]
+                    # Обновляем условия в других технологиях (старый и новый формат)
+                    old_conditions = tech['условия']
+                    if old_conditions:
+                        if isinstance(old_conditions[0], str):
+                            tech['условия'] = [new_name if cond == self.current_tech else cond for cond in old_conditions]
+                        elif isinstance(old_conditions[0], list):
+                            tech['условия'] = [[new_name if cond == self.current_tech else cond for cond in path] for path in old_conditions]
 
                 self.current_tech = new_name
                 self.update_tech_list()
@@ -1020,8 +1241,35 @@ class EditorWindow:
             tech_data['условия'] = conditions
 
     def add_condition(self):
-        condition = simpledialog.askstring("Добавить условие", "Введите название технологии-условия:")
+        condition = simpledialog.askstring(
+            "Добавить условие",
+            "Введите название технологии-условия:\n"
+            "Для альтернативного пути используйте скобки:\n"
+            "(Технология1, Технология2, ...)"
+        )
         if condition:
+            condition = condition.strip()
+            # Проверка наличия технологий в древе
+            if condition.startswith('(') and condition.endswith(')'):
+                # Это путь: проверяем каждую технологию в пути
+                path_content = condition[1:-1]
+                techs = [t.strip() for t in path_content.split(',') if t.strip()]
+                invalid_techs = [t for t in techs if t not in self.dct_tech]
+                if invalid_techs:
+                    messagebox.showerror(
+                        "Ошибка",
+                        f"Следующие технологии не найдены в древе:\n" + "\n".join(invalid_techs)
+                    )
+                    return
+            else:
+                # Это одиночная технология
+                if condition not in self.dct_tech:
+                    messagebox.showerror(
+                        "Ошибка",
+                        f"Технология '{condition}' не найдена в древе технологий!"
+                    )
+                    return
+
             self.conditions_listbox.insert(tk.END, condition)
             self.on_data_change()
 
@@ -1029,6 +1277,67 @@ class EditorWindow:
         if self.conditions_listbox.curselection():
             self.conditions_listbox.delete(self.conditions_listbox.curselection()[0])
             self.on_data_change()
+
+    def edit_condition(self):
+        """Редактирование выбранного условия"""
+        if not self.conditions_listbox.curselection():
+            messagebox.showwarning("Предупреждение", "Выберите условие для редактирования")
+            return
+
+        # Получаем индекс и текущее значение
+        index = self.conditions_listbox.curselection()[0]
+        current_value = self.conditions_listbox.get(index)
+
+        # Запрашиваем новое значение
+        new_value = simpledialog.askstring(
+            "Редактировать условие",
+            "Введите новое значение условия:\n"
+            "Для альтернативного пути используйте скобки:\n"
+            "(Технология1, Технология2, ...)",
+            initialvalue=current_value
+        )
+
+        if new_value is None:  # Пользователь отменил действие
+            return
+
+        new_value = new_value.strip()
+
+        # Проверка наличия технологий в древе
+        if new_value.startswith('(') and new_value.endswith(')'):
+            # Это путь: проверяем каждую технологию в пути
+            path_content = new_value[1:-1]
+            techs = [t.strip() for t in path_content.split(',') if t.strip()]
+
+            if not techs:
+                messagebox.showerror("Ошибка", "Путь не может быть пустым!")
+                return
+
+            invalid_techs = [t for t in techs if t not in self.dct_tech]
+            if invalid_techs:
+                messagebox.showerror(
+                    "Ошибка",
+                    f"Следующие технологии не найдены в древе:\n" + "\n".join(invalid_techs)
+                )
+                return
+        else:
+            # Это одиночная технология
+            if not new_value:
+                messagebox.showerror("Ошибка", "Условие не может быть пустым!")
+                return
+
+            if new_value not in self.dct_tech:
+                messagebox.showerror(
+                    "Ошибка",
+                    f"Технология '{new_value}' не найдена в древе технологий!"
+                )
+                return
+
+        # Обновляем значение в списке
+        self.conditions_listbox.delete(index)
+        self.conditions_listbox.insert(index, new_value)
+        self.conditions_listbox.selection_set(index)
+        self.on_data_change()
+
 
     def new_technology(self):
         name = simpledialog.askstring("Новая технология", "Введите название технологии:")
