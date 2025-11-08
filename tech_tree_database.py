@@ -47,25 +47,32 @@ class TechTreeDatabase:
         Получить все технологии с их зависимостями
 
         Returns:
-            Список словарей с данными технологий
+            Список словарей с данными технологий в формате JSON
         """
         cursor = self.conn.cursor()
 
         # Получаем все технологии
         cursor.execute("SELECT id, name, description FROM technologies ORDER BY name")
-        technologies = [dict(row) for row in cursor.fetchall()]
+        raw_technologies = cursor.fetchall()
 
-        # Для каждой технологии получаем зависимости
-        for tech in technologies:
+        technologies = []
+        for row in raw_technologies:
+            tech = {
+                'название': row['name'],
+                'описание': row['description']
+            }
+
+            # Получаем зависимости
             cursor.execute("""
                 SELECT t.name
                 FROM technology_dependencies td
                 JOIN technologies t ON td.depends_on_id = t.id
                 WHERE td.technology_id = ?
                 ORDER BY t.name
-            """, (tech['id'],))
+            """, (row['id'],))
 
-            tech['условия'] = [row['name'] for row in cursor.fetchall()]
+            tech['условия'] = [dep_row['name'] for dep_row in cursor.fetchall()]
+            technologies.append(tech)
 
         return technologies
 
@@ -77,7 +84,7 @@ class TechTreeDatabase:
             name: Название технологии
 
         Returns:
-            Словарь с данными технологии или None
+            Словарь с данными технологии в формате JSON или None
         """
         cursor = self.conn.cursor()
 
@@ -91,7 +98,10 @@ class TechTreeDatabase:
         if not row:
             return None
 
-        tech = dict(row)
+        tech = {
+            'название': row['name'],
+            'описание': row['description']
+        }
 
         # Получаем зависимости
         cursor.execute("""
@@ -100,9 +110,9 @@ class TechTreeDatabase:
             JOIN technologies t ON td.depends_on_id = t.id
             WHERE td.technology_id = ?
             ORDER BY t.name
-        """, (tech['id'],))
+        """, (row['id'],))
 
-        tech['условия'] = [row['name'] for row in cursor.fetchall()]
+        tech['условия'] = [dep_row['name'] for dep_row in cursor.fetchall()]
 
         return tech
 
@@ -438,9 +448,12 @@ class TechTreeDatabase:
 
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self, user_id: str = 'default') -> Dict:
         """
         Получить общую статистику по базе данных
+
+        Args:
+            user_id: ID пользователя (для статистики прогресса)
 
         Returns:
             Словарь со статистикой
@@ -465,6 +478,27 @@ class TechTreeDatabase:
             WHERE td.id IS NULL
         """)
         stats['root_technologies'] = cursor.fetchone()[0]
+
+        # Количество разблокированных технологий
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM user_progress
+            WHERE user_id = ? AND is_unlocked = 1
+        """, (user_id,))
+        stats['unlocked_technologies'] = cursor.fetchone()[0]
+
+        # Средний процент выполнения зависимостей
+        cursor.execute("""
+            SELECT AVG(dep_count) as avg_deps
+            FROM (
+                SELECT COUNT(td.depends_on_id) as dep_count
+                FROM technologies t
+                LEFT JOIN technology_dependencies td ON t.id = td.technology_id
+                GROUP BY t.id
+            )
+        """)
+        row = cursor.fetchone()
+        stats['avg_dependencies'] = float(row['avg_deps']) if row['avg_deps'] else 0.0
 
         # Технология с наибольшим количеством зависимостей
         cursor.execute("""
@@ -506,7 +540,7 @@ if __name__ == "__main__":
         # Получить технологию
         fire = db.get_technology_by_name('Огонь')
         if fire:
-            print(f"\nОгонь: {fire['description']}")
+            print(f"\nОгонь: {fire['описание']}")
             print(f"Зависимости: {fire['условия']}")
 
         # Получить предков
@@ -527,7 +561,7 @@ if __name__ == "__main__":
         progress = db.get_user_progress()
         print(f"\nПрогресс: {progress['unlocked']}/{progress['total']} ({progress['percentage']}%)")
 
-        # Получить доступные технологии
+        # Получить доступные технологии (возвращает словари с английскими ключами)
         available_techs = db.get_available_technologies()
         print(f"\nДоступно для разблокировки: {len(available_techs)} технологий")
         for tech in available_techs[:5]:
@@ -539,6 +573,8 @@ if __name__ == "__main__":
         print(f"  Всего технологий: {stats['total_technologies']}")
         print(f"  Всего зависимостей: {stats['total_dependencies']}")
         print(f"  Корневых технологий: {stats['root_technologies']}")
+        print(f"  Разблокировано: {stats['unlocked_technologies']}")
+        print(f"  Среднее число зависимостей: {stats['avg_dependencies']:.2f}")
         if 'most_complex_tech' in stats:
             print(f"  Самая сложная: {stats['most_complex_tech']['name']} ({stats['most_complex_tech']['dependencies']} зависимостей)")
         if 'most_influential_tech' in stats:
