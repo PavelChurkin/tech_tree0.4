@@ -1041,18 +1041,15 @@ class EditorWindow:
                                                  command=self.remove_condition)
         self.remove_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
 
-        # Кнопки управления
+        # Кнопки управления технологиями
+        self.button_frame = tk.Frame(self.edit_frame)
+        self.button_frame.pack(side=tk.TOP, fill=tk.X)
+
         self.new_tech_button = tk.Button(self.button_frame, text="Новый узел", command=self.new_technology)
         self.new_tech_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         self.delete_tech_button = tk.Button(self.button_frame, text="Удалить узел", command=self.delete_technology)
         self.delete_tech_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.save_json_button = tk.Button(self.button_frame, text="Сохранить JSON", command=self.save_json)
-        self.save_json_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.load_json_button = tk.Button(self.button_frame, text="Загрузить JSON", command=self.load_json)
-        self.load_json_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         self.sort_alpha_button = tk.Button(self.button_frame, text="Сортировка по алфавиту",
                                            command=self.sort_alphabetical)
@@ -1060,9 +1057,6 @@ class EditorWindow:
 
         self.sort_graph_button = tk.Button(self.button_frame, text="Сортировка по графу", command=self.sort_graph)
         self.sort_graph_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.save_image_button = tk.Button(self.button_frame, text="Сохранить картинку", command=self.save_image)
-        self.save_image_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         # Загрузка данных
         self.load_data()
