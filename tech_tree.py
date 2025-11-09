@@ -296,6 +296,19 @@ def get_filtered_technologies() -> List[Dict[str, Any]]:
     return data['технологии']
 
 
+def update_progress_label() -> None:
+    """Обновление счётчика технологий и прогресса изучения"""
+    total_techs = len(data['технологии'])
+    completed_techs = sum(1 for tech in data['технологии'] if tech_flags[tech['название']])
+
+    if total_techs > 0:
+        progress_percent = (completed_techs / total_techs) * 100
+    else:
+        progress_percent = 0.0
+
+    progress_label.config(text=f"Технологий: {total_techs} | Прогресс: {progress_percent:.2f}%")
+
+
 def search_technology(search_query: str) -> None:
     """Поиск и выделение технологии в списке"""
     if not search_query:
@@ -346,6 +359,9 @@ def update_listbox_colors() -> None:
     # Восстанавливаем позицию прокрутки
     tech_listbox.yview_moveto(scroll_pos[0])
     is_selecting = False
+
+    # Обновляем счётчик технологий и прогресс
+    update_progress_label()
 
 
 # Функции сортировки и фильтрации
@@ -766,6 +782,10 @@ search_entry.bind('<Return>', lambda e: search_technology(search_entry.get()))
 search_button = tk.Button(search_frame, text="Найти", command=lambda: search_technology(search_entry.get()))
 search_button.pack(side=tk.LEFT)
 
+# Счётчик технологий и прогресс
+progress_label = tk.Label(search_frame, text="Технологий: 0 | Прогресс: 0.00%", bg='lightgray', font=('Arial', 10, 'bold'))
+progress_label.pack(side=tk.LEFT, padx=(10, 0))
+
 tech_listbox = tk.Listbox(left_bottom_frame, font=('Arial', 12))
 tech_listbox.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
@@ -1014,11 +1034,12 @@ class EditorWindow:
         self.name_entry.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
 
-        self.desc_label = tk.Label(self.edit_frame, text="Описание:")
+        self.desc_label = tk.Label(self.edit_frame, text="Описание (нажмите для редактирования):")
         self.desc_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
         self.desc_text = scrolledtext.ScrolledText(self.edit_frame, height=5)
         self.desc_text.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=2)
-        # self.desc_text.bind('<KeyRelease>', self.on_data_change)
+        self.desc_text.configure(state='disabled')  # Делаем поле только для чтения
+        self.desc_text.bind('<Button-1>', lambda e: self.open_description_editor())  # Открываем редактор по клику
 
         self.conditions_label = tk.Label(self.edit_frame, text="Условия (родители):")
         self.conditions_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
@@ -1310,13 +1331,15 @@ class EditorWindow:
 
         # Отключаем события чтобы не вызывать on_data_change
         self.name_entry.unbind('<KeyRelease>')
-        self.desc_text.unbind('<KeyRelease>')
 
         self.name_entry.delete(0, tk.END)
         self.name_entry.insert(0, tech_name)
 
+        # Обновляем описание (поле только для чтения)
+        self.desc_text.configure(state='normal')
         self.desc_text.delete(1.0, tk.END)
         self.desc_text.insert(1.0, tech_data.get('описание', ''))
+        self.desc_text.configure(state='disabled')
 
         self.conditions_listbox.delete(0, tk.END)
         conditions = tech_data.get('условия', [])
@@ -1332,21 +1355,81 @@ class EditorWindow:
                     path_str = "(" + ", ".join(path) + ")"
                     self.conditions_listbox.insert(tk.END, path_str)
 
-        # Включаем события обратно
+        # Включаем события обратно только для имени
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
-        self.desc_text.bind('<KeyRelease>', self.on_data_change)
 
     def on_data_change(self, event=None):
         if self.current_tech:
             self.save_current_tech()
             self.update_viz(self.current_tech)
 
+    def open_description_editor(self):
+        """Открывает модальное окно для редактирования описания"""
+        if not self.current_tech:
+            messagebox.showwarning("Предупреждение", "Выберите технологию для редактирования")
+            return
+
+        # Создаем модальное окно
+        dialog = tk.Toplevel(self.window)
+        dialog.title(f"Редактирование описания: {self.current_tech}")
+        dialog.geometry("600x400")
+        dialog.transient(self.window)
+        dialog.grab_set()
+
+        # Текстовое поле для редактирования
+        desc_label = tk.Label(dialog, text="Описание:")
+        desc_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
+        desc_editor = scrolledtext.ScrolledText(dialog, wrap=tk.WORD, font=('Arial', 10))
+        desc_editor.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Загружаем текущее описание
+        current_desc = self.dct_tech.get(self.current_tech, {}).get('описание', '')
+        desc_editor.insert(1.0, current_desc)
+        desc_editor.focus_set()
+
+        # Фрейм для кнопок
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
+
+        def save_description():
+            """Сохраняет описание и закрывает окно"""
+            new_desc = desc_editor.get(1.0, tk.END).strip()
+            if self.current_tech in self.dct_tech:
+                self.dct_tech[self.current_tech]['описание'] = new_desc
+                # Обновляем отображение
+                self.desc_text.configure(state='normal')
+                self.desc_text.delete(1.0, tk.END)
+                self.desc_text.insert(1.0, new_desc)
+                self.desc_text.configure(state='disabled')
+                # Обновляем диаграмму только один раз после сохранения
+                self.update_viz(self.current_tech)
+            dialog.destroy()
+
+        def cancel():
+            """Закрывает окно без сохранения"""
+            dialog.destroy()
+
+        # Кнопки
+        save_btn = tk.Button(button_frame, text="Сохранить", command=save_description, width=15)
+        save_btn.pack(side=tk.LEFT, padx=5)
+
+        cancel_btn = tk.Button(button_frame, text="Отмена", command=cancel, width=15)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+
+        # Привязка клавиш
+        dialog.bind('<Escape>', lambda e: cancel())
+        dialog.bind('<Control-Return>', lambda e: save_description())
+
+        # Ждем закрытия окна
+        dialog.wait_window()
+
     def save_current_tech(self):
         if not self.current_tech:
             return
 
         new_name = self.name_entry.get().strip()
-        description = self.desc_text.get(1.0, tk.END).strip()
+        # Описание редактируется через модальное окно, не обновляем его здесь
         conditions_raw = list(self.conditions_listbox.get(0, tk.END))
 
         # Парсим условия: если начинаются с '(', это группа (путь)
@@ -1402,7 +1485,7 @@ class EditorWindow:
 
             # Обновляем остальные поля
             tech_data['название'] = new_name
-            tech_data['описание'] = description
+            # Описание не обновляем здесь - только через модальное окно
             tech_data['условия'] = conditions
 
     def add_condition(self):
