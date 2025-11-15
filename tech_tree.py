@@ -1411,15 +1411,11 @@ class EditorWindow:
             dialog.destroy()
 
         # Кнопки
-        save_btn = tk.Button(button_frame, text="Сохранить", command=save_description, width=15)
+        save_btn = tk.Button(button_frame, text="Принять", command=save_description, width=15)
         save_btn.pack(side=tk.LEFT, padx=5)
 
         cancel_btn = tk.Button(button_frame, text="Отмена", command=cancel, width=15)
         cancel_btn.pack(side=tk.LEFT, padx=5)
-
-        # Привязка клавиш
-        dialog.bind('<Escape>', lambda e: cancel())
-        dialog.bind('<Control-Return>', lambda e: save_description())
 
         # Ждем закрытия окна
         dialog.wait_window()
