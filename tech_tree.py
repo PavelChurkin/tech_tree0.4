@@ -17,6 +17,8 @@ import zlib
 import base64
 import xml.etree.ElementTree as ET
 from io import BytesIO
+from typing import Dict, List, Any, Tuple, Optional, Union, Set
+import tkinter.font as tkfont
 
 # Путь к текущей директории
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +40,50 @@ root = tk.Tk()
 root.title("Технологическое древо")
 root.configure(bg='#2e2e2e')
 root.geometry("1300x800")
+
+# Создание меню для главного окна
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+# Меню "Файл"
+file_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Файл", menu=file_menu)
+file_menu.add_command(label="Загрузить древо", command=lambda: load_tech_tree())
+file_menu.add_command(label="Сохранить прогресс", command=save_progress)
+file_menu.add_command(label="Загрузить прогресс", command=load_progress)
+file_menu.add_separator()
+file_menu.add_command(label="Открыть редактор", command=lambda: open_editor())
+
+# Меню "Вид"
+view_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Вид", menu=view_menu)
+view_menu.add_command(label="Вид 1 (Краткий)", command=lambda: set_view(0))
+view_menu.add_command(label="Вид 2 (Подробный)", command=lambda: set_view(1))
+view_menu.add_command(label="Вид 3 (Всё)", command=lambda: set_view(2))
+
+# Меню "Сортировка"
+sort_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Сортировка", menu=sort_menu)
+sort_menu.add_command(label="По статусу", command=sort_by_status)
+sort_menu.add_command(label="По алфавиту", command=sort_by_alphabet)
+
+# Меню "Фильтр"
+filter_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Фильтр", menu=filter_menu)
+filter_menu.add_command(label="Вид по умолчанию", command=lambda: set_filter("default"))
+filter_menu.add_separator()
+filter_menu.add_command(label="Доступные технологии", command=lambda: set_filter("available"))
+filter_menu.add_command(label="Выполненные технологии", command=lambda: set_filter("completed"))
+filter_menu.add_command(label="Недоступные технологии", command=lambda: set_filter("unavailable"))
+
+# Меню "Справка"
+help_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Справка", menu=help_menu)
+help_menu.add_command(label="Открыть справку (F1)", command=open_help)
+help_menu.add_command(label="Подробности", command=open_mhtml)
+
+# Привязка клавиши F1 к справке
+root.bind('<F1>', lambda e: open_help())
 
 # Создание фреймов для областей
 left_frame = tk.Frame(root, width=600, height=600, bg='lightgray')
@@ -63,6 +109,8 @@ current_ylim = None
 view_flags = ["Кратко", "Подробно", "Всё"]
 current_state = 0
 is_selecting = False
+current_filter = "default"  # default, available, completed, unavailable
+current_sort = "none"  # none, status, alphabet
 
 desc_text1 = scrolledtext.ScrolledText(
     left_top_frame,
@@ -77,7 +125,7 @@ desc_text1.insert(tk.END, "Выберите технологию из списк
 
 
 # Функции для масштабирования и панорамирования
-def on_scroll(event):
+def on_scroll(event: Any) -> None:
     global zoom_factor, current_xlim, current_ylim
     if event.inaxes:
         x, y = event.xdata, event.ydata
@@ -93,13 +141,13 @@ def on_scroll(event):
         current_ylim = ax.get_ylim()
 
 
-def on_press(event):
+def on_press(event: Any) -> None:
     global pan_start, drag_start
     if event.button == 1 and event.inaxes:
         drag_start = (event.xdata, event.ydata)
 
 
-def on_motion(event):
+def on_motion(event: Any) -> None:
     global pan_start, drag_start, current_xlim, current_ylim
     if drag_start and event.inaxes:
         ax = event.inaxes
@@ -119,7 +167,7 @@ def on_motion(event):
         current_ylim = ax.get_ylim()
 
 
-def on_release(event):
+def on_release(event: Any) -> None:
     global pan_start, drag_start
     if event.button == 1:
         if pan_start is None and drag_start:
@@ -133,7 +181,7 @@ def on_release(event):
 
 
 # Функция для обновления описания технологии
-def update_description(tech_name):
+def update_description(tech_name: str) -> None:
     # Очистка предыдущего описания
     for widget in left_top_frame.winfo_children():
         widget.destroy()
@@ -160,7 +208,7 @@ def update_description(tech_name):
             break
 
 
-def open_mhtml():
+def open_mhtml() -> None:
     tech_name = selected_tech.get()
     if tech_name:
         if os.path.exists(fr"web\{tech_name}.mhtml"):
@@ -169,8 +217,17 @@ def open_mhtml():
             webbrowser.open(fr"https://yandex.ru/search?text={tech_name}")
 
 
+def open_help() -> None:
+    """Открытие файла справки"""
+    help_file = os.path.join(BASE_DIR, "help.mhtml")
+    if os.path.exists(help_file):
+        webbrowser.open(help_file)
+    else:
+        messagebox.showinfo("Справка", "Файл справки не найден.\n\nИспользуйте:\n- F1 для вызова справки\n- ЛКМ для выбора технологии\n- ПКМ для переключения статуса\n- Колесико мыши для масштабирования")
+
+
 # Вспомогательная функция для проверки наличия родителя в условиях
-def is_parent_in_conditions(parent_name, conditions):
+def is_parent_in_conditions(parent_name: str, conditions: List[Union[str, List[str]]]) -> bool:
     """
     Проверяет, является ли parent_name одним из условий технологии.
     Поддерживает оба формата: старый (список строк) и новый (список путей).
@@ -191,7 +248,7 @@ def is_parent_in_conditions(parent_name, conditions):
 
 
 # Функция для проверки доступности технологии
-def is_tech_available(tech_name):
+def is_tech_available(tech_name: str) -> bool:
 
     for tech in data['технологии']:
         if tech['название'] == tech_name:
@@ -222,8 +279,62 @@ def is_tech_available(tech_name):
     return True
 
 
+# Функции сортировки и фильтрации
+def get_filtered_technologies() -> List[Dict[str, Any]]:
+    """Возвращает отфильтрованный список технологий"""
+    if current_filter == "default":
+        return data['технологии']
+    elif current_filter == "available":
+        return [tech for tech in data['технологии']
+                if is_tech_available(tech['название']) and not tech_flags[tech['название']]]
+    elif current_filter == "completed":
+        return [tech for tech in data['технологии']
+                if tech_flags[tech['название']]]
+    elif current_filter == "unavailable":
+        return [tech for tech in data['технологии']
+                if not is_tech_available(tech['название']) and not tech_flags[tech['название']]]
+    return data['технологии']
+
+
+def update_progress_label() -> None:
+    """Обновление счётчика технологий и прогресса изучения"""
+    total_techs = len(data['технологии'])
+    completed_techs = sum(1 for tech in data['технологии'] if tech_flags[tech['название']])
+
+    if total_techs > 0:
+        progress_percent = (completed_techs / total_techs) * 100
+    else:
+        progress_percent = 0.0
+
+    progress_label.config(text=f"Технологий: {total_techs} | Прогресс: {progress_percent:.2f}%")
+
+
+def search_technology(search_query: str) -> None:
+    """Поиск и выделение технологии в списке"""
+    if not search_query:
+        return
+
+    search_query = search_query.lower().strip()
+
+    # Ищем технологию в отфильтрованном списке
+    filtered_techs = get_filtered_technologies()
+    for i, tech in enumerate(filtered_techs):
+        if search_query in tech['название'].lower():
+            # Выбираем найденную технологию
+            tech_listbox.selection_clear(0, tk.END)
+            tech_listbox.selection_set(i)
+            tech_listbox.see(i)
+            tech_listbox.activate(i)
+            # Обновляем описание
+            update_description(tech['название'])
+            return
+
+    # Если не найдено
+    messagebox.showinfo("Поиск", f"Технология '{search_query}' не найдена")
+
+
 # Функция для обновления цветов списка
-def update_listbox_colors():
+def update_listbox_colors() -> None:
     global is_selecting
     is_selecting = True
 
@@ -231,7 +342,9 @@ def update_listbox_colors():
     scroll_pos = tech_listbox.yview()
 
     tech_listbox.delete(0, tk.END)
-    for tech in data['технологии']:
+    # Используем отфильтрованный список технологий
+    filtered_techs = get_filtered_technologies()
+    for tech in filtered_techs:
         name = tech['название']
         tech_listbox.insert(tk.END, name)
         # Определение цвета
@@ -247,10 +360,58 @@ def update_listbox_colors():
     tech_listbox.yview_moveto(scroll_pos[0])
     is_selecting = False
 
+    # Обновляем счётчик технологий и прогресс
+    update_progress_label()
+
+
+# Функции сортировки и фильтрации
+def sort_by_status() -> None:
+    """Сортировка технологий по статусу: зелёные, жёлтые, красные"""
+    global current_sort, data
+    current_sort = "status"
+
+    # Разделяем технологии по статусу
+    green_techs = []
+    yellow_techs = []
+    red_techs = []
+
+    for tech in data['технологии']:
+        name = tech['название']
+        if tech_flags[name]:
+            green_techs.append(tech)
+        elif is_tech_available(name):
+            yellow_techs.append(tech)
+        else:
+            red_techs.append(tech)
+
+    # Сортируем каждую группу по алфавиту для стабильности
+    green_techs.sort(key=lambda x: x['название'])
+    yellow_techs.sort(key=lambda x: x['название'])
+    red_techs.sort(key=lambda x: x['название'])
+
+    # Объединяем
+    data['технологии'] = green_techs + yellow_techs + red_techs
+    update_listbox_colors()
+
+
+def sort_by_alphabet() -> None:
+    """Сортировка технологий по алфавиту"""
+    global current_sort, data
+    current_sort = "alphabet"
+    data['технологии'].sort(key=lambda x: x['название'])
+    update_listbox_colors()
+
+
+def set_filter(filter_type: str) -> None:
+    """Установка фильтра для отображения технологий"""
+    global current_filter
+    current_filter = filter_type
+    update_listbox_colors()
+
 
 # Функция для поиска всех родителей
-def find_all_parents(tech_name):
-    parents = {}
+def find_all_parents(tech_name: str) -> Dict[str, int]:
+    parents: Dict[str, int] = {}
     queue = deque([(tech_name, 0)])
     while queue:
         current_tech, level = queue.popleft()
@@ -276,8 +437,8 @@ def find_all_parents(tech_name):
 
 
 # Функция для поиска всех детей
-def find_all_children(tech_name):
-    children = {}
+def find_all_children(tech_name: str) -> Dict[str, int]:
+    children: Dict[str, int] = {}
     queue = deque([(tech_name, 0)])
     while queue:
         current_tech, level = queue.popleft()
@@ -292,7 +453,7 @@ def find_all_children(tech_name):
 
 
 # Функция для обновления визуализации древа
-def update_visualization(tech_name, preserve_view=False):
+def update_visualization(tech_name: str, preserve_view: bool = False) -> None:
     global G, pos, fig, ax, canvas, current_xlim, current_ylim
 
     if not tech_name:
@@ -595,7 +756,7 @@ def update_visualization(tech_name, preserve_view=False):
 
 
 # Обработка правой кнопки мыши
-def on_right_click(event):
+def on_right_click(event: Any) -> None:
     global zoom_factor, pos
     if event.inaxes:
         x, y = event.xdata, event.ydata
@@ -606,6 +767,24 @@ def on_right_click(event):
                 update_listbox_colors()
                 break
 
+
+# Поисковая строка для главного окна
+search_frame = tk.Frame(left_bottom_frame, bg='lightgray')
+search_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
+search_label = tk.Label(search_frame, text="Поиск:", bg='lightgray')
+search_label.pack(side=tk.LEFT, padx=(0, 5))
+
+search_entry = tk.Entry(search_frame)
+search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+search_entry.bind('<Return>', lambda e: search_technology(search_entry.get()))
+
+search_button = tk.Button(search_frame, text="Найти", command=lambda: search_technology(search_entry.get()))
+search_button.pack(side=tk.LEFT)
+
+# Счётчик технологий и прогресс
+progress_label = tk.Label(search_frame, text="Технологий: 0 | Прогресс: 0.00%", bg='lightgray', font=('Arial', 10, 'bold'))
+progress_label.pack(side=tk.LEFT, padx=(10, 0))
 
 tech_listbox = tk.Listbox(left_bottom_frame, font=('Arial', 12))
 tech_listbox.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -624,7 +803,7 @@ update_listbox_colors()
 
 
 # Обработка выбора в списке
-def on_select(event):
+def on_select(event: Any) -> None:
     global is_selecting
     if not is_selecting:
         selected_index = tech_listbox.curselection()
@@ -637,7 +816,7 @@ tech_listbox.bind('<<ListboxSelect>>', on_select)
 
 
 # Функция для загрузки нового древа
-def load_tech_tree():
+def load_tech_tree() -> None:
     file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
     if file_path:
         try:
@@ -675,7 +854,7 @@ def load_tech_tree():
 
 
 # Функция для сохранения прогресса
-def save_progress():
+def save_progress() -> None:
     file_path = filedialog.asksaveasfilename(
         defaultextension=".json",
         filetypes=[("JSON files", "*.json")],
@@ -691,7 +870,7 @@ def save_progress():
 
 
 # Функция для загрузки прогресса
-def load_progress():
+def load_progress() -> None:
     file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
     if file_path:
         try:
@@ -711,20 +890,20 @@ def load_progress():
             messagebox.showerror("Ошибка", f"Не удалось загрузить прогресс: {str(e)}")
 
 
-def set_view(state):
+def set_view(state: int) -> None:
     global current_state
     current_state = state
     update_visualization(selected_tech.get())
 
 
 # Функция для открытия редактора древа
-def open_editor():
+def open_editor() -> None:
     root.withdraw()  # Скрыть основное окно
     editor = EditorWindow(root)
     editor.window.protocol("WM_DELETE_WINDOW", lambda: on_editor_close(editor))
 
 
-def on_editor_close(editor):
+def on_editor_close(editor: 'EditorWindow') -> None:
     editor.window.destroy()
     root.deiconify()  # Показать основное окно
     # Обновить данные после редактирования
@@ -737,35 +916,6 @@ def on_editor_close(editor):
         update_visualization(selected_tech.get())
 
 
-# Кнопки "Сохранить" и "Загрузить прогресс"
-button_frame = tk.Frame(left_bottom_frame, bg='lightgray')
-button_frame.pack(side=tk.BOTTOM, fill=tk.X)
-
-load_tree_button = tk.Button(button_frame, text="Загрузить древо", command=load_tech_tree)
-load_tree_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=5, pady=5)
-
-save_button = tk.Button(button_frame, text="Сохр. прогресс", command=save_progress)
-save_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=5, pady=5)
-
-load_button = tk.Button(button_frame, text="Загр. прогресс", command=load_progress)
-load_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=5, pady=5)
-
-details_button = tk.Button(button_frame, text="Подробности", command=open_mhtml)
-details_button.pack(side=tk.LEFT, fill=tk.BOTH, padx=5, pady=5)
-
-view_button1 = tk.Button(button_frame, text='Вид1', command=lambda: set_view(0))
-view_button1.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5, pady=5)
-
-view_button2 = tk.Button(button_frame, text='Вид2', command=lambda: set_view(1))
-view_button2.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5, pady=5)
-
-view_button3 = tk.Button(button_frame, text='Вид3', command=lambda: set_view(2))
-view_button3.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5, pady=5)
-
-edit_button = tk.Button(button_frame, text="Открыть редактор", command=open_editor)
-edit_button.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5, pady=5)
-
-
 # Класс для окна редактора
 class EditorWindow:
     def __init__(self, parent):
@@ -774,15 +924,42 @@ class EditorWindow:
         self.window.title("Редактор технологического древа")
         self.window.geometry("1200x800")
 
+        # Создание меню для окна редактора
+        editor_menu_bar = tk.Menu(self.window)
+        self.window.config(menu=editor_menu_bar)
+
+        # Меню "Файл"
+        editor_file_menu = tk.Menu(editor_menu_bar, tearoff=0)
+        editor_menu_bar.add_cascade(label="Файл", menu=editor_file_menu)
+        editor_file_menu.add_command(label="Сохранить JSON", command=self.save_json)
+        editor_file_menu.add_command(label="Загрузить JSON", command=self.load_json)
+        editor_file_menu.add_command(label="Сохранить картинку", command=self.save_image)
+        editor_file_menu.add_separator()
+        editor_file_menu.add_command(label="Вернуться в основное окно", command=lambda: on_editor_close(self))
+
+        # Меню "Функции"
+        functions_menu = tk.Menu(editor_menu_bar, tearoff=0)
+        editor_menu_bar.add_cascade(label="Функции", menu=functions_menu)
+        functions_menu.add_command(label="Проверка циклических зависимостей", command=self.check_cyclic_dependencies)
+        functions_menu.add_command(label="Поиск самых длинных цепочек", command=self.find_longest_chains)
+        functions_menu.add_command(label="Поиск узких мест (ключевых технологий)", command=self.find_bottlenecks)
+        functions_menu.add_command(label="Проверка существования родителей", command=self.check_parent_existence)
+        functions_menu.add_command(label="Проверка изолированных узлов", command=self.check_isolated_nodes)
+
+        # Меню "Справка"
+        editor_help_menu = tk.Menu(editor_menu_bar, tearoff=0)
+        editor_menu_bar.add_cascade(label="Справка", menu=editor_help_menu)
+        editor_help_menu.add_command(label="Открыть справку (F1)", command=open_help)
+
+        # Привязка клавиши F1 к справке
+        self.window.bind('<F1>', lambda e: open_help())
+
         # Основные фреймы
         self.top_frame = tk.Frame(self.window)
         self.top_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.bottom_frame = tk.Frame(self.window)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-        self.button_frame = tk.Frame(self.window)
-        self.button_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Верхний фрейм - визуализация с ползунками
         self.viz_label = tk.Label(self.top_frame, text="Визуализация древа (PlantUML)")
@@ -825,6 +1002,20 @@ class EditorWindow:
         self.tech_list_label = tk.Label(self.tech_list_frame, text="Список технологий")
         self.tech_list_label.pack(side=tk.TOP, fill=tk.X)
 
+        # Поисковая строка для редактора
+        self.search_frame = tk.Frame(self.tech_list_frame)
+        self.search_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
+        self.search_label = tk.Label(self.search_frame, text="Поиск:")
+        self.search_label.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.search_entry = tk.Entry(self.search_frame)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.search_entry.bind('<Return>', lambda e: self.search_technology())
+
+        self.search_button = tk.Button(self.search_frame, text="Найти", command=self.search_technology)
+        self.search_button.pack(side=tk.LEFT)
+
         self.tech_listbox = tk.Listbox(self.tech_list_frame, font=('Arial', 10))
         self.tech_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
@@ -843,11 +1034,12 @@ class EditorWindow:
         self.name_entry.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
 
-        self.desc_label = tk.Label(self.edit_frame, text="Описание:")
+        self.desc_label = tk.Label(self.edit_frame, text="Описание (нажмите для редактирования):")
         self.desc_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
         self.desc_text = scrolledtext.ScrolledText(self.edit_frame, height=5)
         self.desc_text.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=2)
-        # self.desc_text.bind('<KeyRelease>', self.on_data_change)
+        self.desc_text.configure(state='disabled')  # Делаем поле только для чтения
+        self.desc_text.bind('<Button-1>', lambda e: self.open_description_editor())  # Открываем редактор по клику
 
         self.conditions_label = tk.Label(self.edit_frame, text="Условия (родители):")
         self.conditions_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
@@ -870,18 +1062,15 @@ class EditorWindow:
                                                  command=self.remove_condition)
         self.remove_condition_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2, pady=2)
 
-        # Кнопки управления
+        # Кнопки управления технологиями
+        self.button_frame = tk.Frame(self.edit_frame)
+        self.button_frame.pack(side=tk.TOP, fill=tk.X)
+
         self.new_tech_button = tk.Button(self.button_frame, text="Новый узел", command=self.new_technology)
         self.new_tech_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         self.delete_tech_button = tk.Button(self.button_frame, text="Удалить узел", command=self.delete_technology)
         self.delete_tech_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.save_json_button = tk.Button(self.button_frame, text="Сохранить JSON", command=self.save_json)
-        self.save_json_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.load_json_button = tk.Button(self.button_frame, text="Загрузить JSON", command=self.load_json)
-        self.load_json_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         self.sort_alpha_button = tk.Button(self.button_frame, text="Сортировка по алфавиту",
                                            command=self.sort_alphabetical)
@@ -889,9 +1078,6 @@ class EditorWindow:
 
         self.sort_graph_button = tk.Button(self.button_frame, text="Сортировка по графу", command=self.sort_graph)
         self.sort_graph_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        self.save_image_button = tk.Button(self.button_frame, text="Сохранить картинку", command=self.save_image)
-        self.save_image_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         # Загрузка данных
         self.load_data()
@@ -1145,13 +1331,15 @@ class EditorWindow:
 
         # Отключаем события чтобы не вызывать on_data_change
         self.name_entry.unbind('<KeyRelease>')
-        self.desc_text.unbind('<KeyRelease>')
 
         self.name_entry.delete(0, tk.END)
         self.name_entry.insert(0, tech_name)
 
+        # Обновляем описание (поле только для чтения)
+        self.desc_text.configure(state='normal')
         self.desc_text.delete(1.0, tk.END)
         self.desc_text.insert(1.0, tech_data.get('описание', ''))
+        self.desc_text.configure(state='disabled')
 
         self.conditions_listbox.delete(0, tk.END)
         conditions = tech_data.get('условия', [])
@@ -1167,21 +1355,77 @@ class EditorWindow:
                     path_str = "(" + ", ".join(path) + ")"
                     self.conditions_listbox.insert(tk.END, path_str)
 
-        # Включаем события обратно
+        # Включаем события обратно только для имени
         self.name_entry.bind('<KeyRelease>', self.on_data_change)
-        self.desc_text.bind('<KeyRelease>', self.on_data_change)
 
     def on_data_change(self, event=None):
         if self.current_tech:
             self.save_current_tech()
             self.update_viz(self.current_tech)
 
+    def open_description_editor(self):
+        """Открывает модальное окно для редактирования описания"""
+        if not self.current_tech:
+            messagebox.showwarning("Предупреждение", "Выберите технологию для редактирования")
+            return
+
+        # Создаем модальное окно
+        dialog = tk.Toplevel(self.window)
+        dialog.title(f"Редактирование описания: {self.current_tech}")
+        dialog.geometry("600x400")
+        dialog.transient(self.window)
+        dialog.grab_set()
+
+        # Текстовое поле для редактирования
+        desc_label = tk.Label(dialog, text="Описание:")
+        desc_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
+        desc_editor = scrolledtext.ScrolledText(dialog, wrap=tk.WORD, font=('Arial', 10))
+        desc_editor.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Загружаем текущее описание
+        current_desc = self.dct_tech.get(self.current_tech, {}).get('описание', '')
+        desc_editor.insert(1.0, current_desc)
+        desc_editor.focus_set()
+
+        # Фрейм для кнопок
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
+
+        def save_description():
+            """Сохраняет описание и закрывает окно"""
+            new_desc = desc_editor.get(1.0, tk.END).strip()
+            if self.current_tech in self.dct_tech:
+                self.dct_tech[self.current_tech]['описание'] = new_desc
+                # Обновляем отображение
+                self.desc_text.configure(state='normal')
+                self.desc_text.delete(1.0, tk.END)
+                self.desc_text.insert(1.0, new_desc)
+                self.desc_text.configure(state='disabled')
+                # Обновляем диаграмму только один раз после сохранения
+                self.update_viz(self.current_tech)
+            dialog.destroy()
+
+        def cancel():
+            """Закрывает окно без сохранения"""
+            dialog.destroy()
+
+        # Кнопки
+        save_btn = tk.Button(button_frame, text="Принять", command=save_description, width=15)
+        save_btn.pack(side=tk.LEFT, padx=5)
+
+        cancel_btn = tk.Button(button_frame, text="Отмена", command=cancel, width=15)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+
+        # Ждем закрытия окна
+        dialog.wait_window()
+
     def save_current_tech(self):
         if not self.current_tech:
             return
 
         new_name = self.name_entry.get().strip()
-        description = self.desc_text.get(1.0, tk.END).strip()
+        # Описание редактируется через модальное окно, не обновляем его здесь
         conditions_raw = list(self.conditions_listbox.get(0, tk.END))
 
         # Парсим условия: если начинаются с '(', это группа (путь)
@@ -1237,7 +1481,7 @@ class EditorWindow:
 
             # Обновляем остальные поля
             tech_data['название'] = new_name
-            tech_data['описание'] = description
+            # Описание не обновляем здесь - только через модальное окно
             tech_data['условия'] = conditions
 
     def add_condition(self):
@@ -1437,9 +1681,234 @@ class EditorWindow:
         else:
             messagebox.showwarning("Предупреждение", "Нет изображения для сохранения")
 
+    def search_technology(self) -> None:
+        """Поиск технологии в редакторе"""
+        search_query = self.search_entry.get().strip()
+        if not search_query:
+            return
+
+        search_query = search_query.lower()
+
+        # Ищем технологию в списке
+        for i, tech in enumerate(self.data['технологии']):
+            if search_query in tech['название'].lower():
+                # Выбираем найденную технологию
+                self.tech_listbox.selection_clear(0, tk.END)
+                self.tech_listbox.selection_set(i)
+                self.tech_listbox.see(i)
+                self.tech_listbox.activate(i)
+                # Загружаем данные технологии
+                self.load_tech_data(tech['название'])
+                self.update_viz(tech['название'])
+                return
+
+        # Если не найдено
+        messagebox.showinfo("Поиск", f"Технология '{search_query}' не найдена")
+
+    def check_cyclic_dependencies(self) -> None:
+        """Проверка циклических зависимостей в графе технологий"""
+        try:
+            # Создаем ориентированный граф
+            G = nx.DiGraph()
+
+            # Добавляем все ребра
+            for tech in self.data['технологии']:
+                tech_name = tech['название']
+                conditions = tech['условия']
+
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        # Старый формат
+                        for parent in conditions:
+                            G.add_edge(parent, tech_name)
+                    elif isinstance(conditions[0], list):
+                        # Новый формат
+                        for path in conditions:
+                            for parent in path:
+                                G.add_edge(parent, tech_name)
+
+            # Ищем циклы
+            try:
+                cycles = list(nx.simple_cycles(G))
+                if cycles:
+                    cycles_str = "\n\n".join([" -> ".join(cycle + [cycle[0]]) for cycle in cycles])
+                    messagebox.showwarning(
+                        "Циклические зависимости",
+                        f"Обнаружено циклов: {len(cycles)}\n\n{cycles_str}"
+                    )
+                else:
+                    messagebox.showinfo("Проверка завершена", "Циклических зависимостей не обнаружено")
+            except:
+                messagebox.showinfo("Проверка завершена", "Циклических зависимостей не обнаружено")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при проверке циклов: {str(e)}")
+
+    def find_longest_chains(self) -> None:
+        """Поиск самых длинных цепочек зависимостей"""
+        try:
+            # Создаем ориентированный граф
+            G = nx.DiGraph()
+
+            for tech in self.data['технологии']:
+                tech_name = tech['название']
+                G.add_node(tech_name)
+                conditions = tech['условия']
+
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        for parent in conditions:
+                            G.add_edge(parent, tech_name)
+                    elif isinstance(conditions[0], list):
+                        for path in conditions:
+                            for parent in path:
+                                G.add_edge(parent, tech_name)
+
+            # Находим самые длинные пути
+            longest_paths = []
+            max_length = 0
+
+            for node in G.nodes():
+                # Ищем самый длинный путь от корневых узлов до текущего
+                ancestors = nx.ancestors(G, node)
+                if ancestors:
+                    for ancestor in ancestors:
+                        try:
+                            paths = list(nx.all_simple_paths(G, ancestor, node))
+                            for path in paths:
+                                if len(path) > max_length:
+                                    max_length = len(path)
+                                    longest_paths = [path]
+                                elif len(path) == max_length:
+                                    longest_paths.append(path)
+                        except:
+                            pass
+
+            if longest_paths:
+                # Ограничиваем вывод первыми 10 цепочками
+                paths_str = "\n\n".join([" -> ".join(path) for path in longest_paths[:10]])
+                more_info = f"\n\n...и еще {len(longest_paths) - 10} цепочек" if len(longest_paths) > 10 else ""
+                messagebox.showinfo(
+                    "Самые длинные цепочки",
+                    f"Максимальная длина: {max_length} технологий\n"
+                    f"Найдено цепочек: {len(longest_paths)}\n\n{paths_str}{more_info}"
+                )
+            else:
+                messagebox.showinfo("Результат", "Длинные цепочки не найдены")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при поиске цепочек: {str(e)}")
+
+    def find_bottlenecks(self) -> None:
+        """Поиск узких мест - технологий с наибольшим количеством упоминаний в условиях"""
+        try:
+            # Подсчитываем упоминания каждой технологии
+            mentions = {}
+
+            for tech in self.data['технологии']:
+                conditions = tech['условия']
+
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        for parent in conditions:
+                            mentions[parent] = mentions.get(parent, 0) + 1
+                    elif isinstance(conditions[0], list):
+                        for path in conditions:
+                            for parent in path:
+                                mentions[parent] = mentions.get(parent, 0) + 1
+
+            if mentions:
+                # Сортируем по количеству упоминаний
+                sorted_mentions = sorted(mentions.items(), key=lambda x: x[1], reverse=True)
+
+                # Показываем топ-20
+                top_count = min(20, len(sorted_mentions))
+                result_str = "\n".join([f"{i+1}. {name}: {count} упоминаний"
+                                       for i, (name, count) in enumerate(sorted_mentions[:top_count])])
+
+                messagebox.showinfo(
+                    "Узкие места (ключевые технологии)",
+                    f"Топ-{top_count} самых упоминаемых технологий:\n\n{result_str}"
+                )
+            else:
+                messagebox.showinfo("Результат", "Зависимости не найдены")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при поиске узких мест: {str(e)}")
+
+    def check_parent_existence(self) -> None:
+        """Проверка существования родительских технологий"""
+        try:
+            all_tech_names = {tech['название'] for tech in self.data['технологии']}
+            missing_parents = set()
+
+            for tech in self.data['технологии']:
+                conditions = tech['условия']
+
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        for parent in conditions:
+                            if parent not in all_tech_names:
+                                missing_parents.add((tech['название'], parent))
+                    elif isinstance(conditions[0], list):
+                        for path in conditions:
+                            for parent in path:
+                                if parent not in all_tech_names:
+                                    missing_parents.add((tech['название'], parent))
+
+            if missing_parents:
+                missing_str = "\n".join([f"- В технологии '{tech}' упомянут несуществующий родитель '{parent}'"
+                                        for tech, parent in sorted(missing_parents)])
+                messagebox.showwarning(
+                    "Несуществующие родители",
+                    f"Найдено {len(missing_parents)} несуществующих родителей:\n\n{missing_str}"
+                )
+            else:
+                messagebox.showinfo("Проверка завершена", "Все родительские технологии существуют")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при проверке родителей: {str(e)}")
+
+    def check_isolated_nodes(self) -> None:
+        """Проверка изолированных узлов без связей"""
+        try:
+            # Создаем неориентированный граф для проверки связности
+            G = nx.Graph()
+
+            for tech in self.data['технологии']:
+                tech_name = tech['название']
+                G.add_node(tech_name)
+                conditions = tech['условия']
+
+                if conditions:
+                    if isinstance(conditions[0], str):
+                        for parent in conditions:
+                            if parent in [t['название'] for t in self.data['технологии']]:
+                                G.add_edge(parent, tech_name)
+                    elif isinstance(conditions[0], list):
+                        for path in conditions:
+                            for parent in path:
+                                if parent in [t['название'] for t in self.data['технологии']]:
+                                    G.add_edge(parent, tech_name)
+
+            # Находим изолированные узлы (узлы без связей)
+            isolated = list(nx.isolates(G))
+
+            if isolated:
+                isolated_str = "\n".join([f"- {node}" for node in sorted(isolated)])
+                messagebox.showwarning(
+                    "Изолированные узлы",
+                    f"Найдено изолированных узлов без связей: {len(isolated)}\n\n{isolated_str}"
+                )
+            else:
+                messagebox.showinfo("Проверка завершена", "Изолированных узлов не обнаружено")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при проверке изолированных узлов: {str(e)}")
+
 
 # Обработка закрытия окна
-def on_closing():
+def on_closing() -> None:
     root.quit()
     root.destroy()
 
