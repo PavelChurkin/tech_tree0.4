@@ -1,0 +1,424 @@
+/* Базовые стили */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #2e2e2e;
+    color: #ffffff;
+    overflow: hidden;
+}
+
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    background-color: #1a1a1a;
+    padding: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+header h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #45a049;
+}
+
+.btn-secondary {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #0b7dda;
+}
+
+.btn-danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #da190b;
+}
+
+.btn-view {
+    background-color: #555;
+    color: white;
+    padding: 0.4rem 0.8rem;
+}
+
+.btn-view:hover {
+    background-color: #666;
+}
+
+.btn-view.active {
+    background-color: #4CAF50;
+}
+
+/* Main content */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+/* Left panel */
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    min-width: 300px;
+    gap: 1rem;
+}
+
+.description-panel {
+    background-color: lightgray;
+    color: #000;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.description-panel h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.tech-description {
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.tech-list-panel {
+    background-color: lightgray;
+    border-radius: 8px;
+    padding: 1rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.list-controls {
+    margin-bottom: 0.5rem;
+}
+
+.list-controls h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.filter-select, .sort-select {
+    flex: 1;
+    padding: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.tech-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tech-item {
+    padding: 0.6rem;
+    margin-bottom: 0.3rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.tech-item:hover {
+    opacity: 0.8;
+    transform: translateX(2px);
+}
+
+.tech-item.selected {
+    border: 2px solid #000;
+}
+
+.tech-item.completed {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.tech-item.available {
+    background-color: #FFC107;
+    color: #000;
+}
+
+.tech-item.unavailable {
+    background-color: #f44336;
+    color: white;
+}
+
+/* Right panel */
+.right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: gray;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.visualization-controls {
+    margin-bottom: 0.5rem;
+}
+
+.visualization-controls h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.view-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.visualization {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+
+#techCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Legend */
+.legend {
+    background-color: #1a1a1a;
+    padding: 0.5rem 1rem;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-color.completed {
+    background-color: #4CAF50;
+}
+
+.legend-color.available {
+    background-color: #FFC107;
+}
+
+.legend-color.unavailable {
+    background-color: #f44336;
+}
+
+/* Help panel */
+.help-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    color: #000;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: none;
+    z-index: 1000;
+}
+
+.help-panel.active {
+    display: block;
+}
+
+.help-panel h3 {
+    margin-bottom: 1rem;
+}
+
+.help-panel ul {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.help-panel li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.help-button {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 999;
+}
+
+.help-button:hover {
+    background-color: #0b7dda;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.2rem;
+    }
+
+    .controls {
+        gap: 0.3rem;
+    }
+
+    .btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    .main-content {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.5rem;
+    }
+
+    .left-panel {
+        width: 100%;
+        min-width: auto;
+        max-height: 50vh;
+    }
+
+    .description-panel {
+        max-height: 150px;
+    }
+
+    .right-panel {
+        min-height: 300px;
+    }
+
+    .legend {
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+    }
+
+    .help-button {
+        bottom: 1rem;
+        right: 1rem;
+        width: 45px;
+        height: 45px;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1rem;
+    }
+
+    .btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .description-panel h2,
+    .list-controls h3,
+    .visualization-controls h3 {
+        font-size: 1rem;
+    }
+
+    .tech-item {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
