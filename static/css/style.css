@@ -145,6 +145,30 @@ header h1 {
     color: #333;
 }
 
+.search-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.progress-info {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+}
+
 .filters {
     display: flex;
     gap: 0.5rem;
@@ -164,13 +188,39 @@ header h1 {
     flex: 1;
 }
 
-.tech-item {
-    padding: 0.6rem;
+.tech-item-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     margin-bottom: 0.3rem;
+}
+
+.tech-item {
+    flex: 1;
+    padding: 0.6rem;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
     font-weight: 500;
+}
+
+.tech-help-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.tech-help-button:hover {
+    background-color: #0b7dda;
+    transform: scale(1.1);
 }
 
 .tech-item:hover {

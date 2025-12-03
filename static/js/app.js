@@ -47,15 +47,24 @@ class TechTreeApp {
     }
 
     setupEventListeners() {
+        // Загрузка древа из файла
+        document.getElementById('fileUpload').addEventListener('change', (e) => this.loadTreeFromFile(e));
+
         // Кнопки прогресса
         document.getElementById('saveProgress').addEventListener('click', () => this.saveProgress());
         document.getElementById('loadProgress').addEventListener('click', () => this.loadProgress(true));
         document.getElementById('resetProgress').addEventListener('click', () => this.resetProgress());
 
+        // Поиск
+        document.getElementById('searchButton').addEventListener('click', () => this.searchTechnology());
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.searchTechnology();
+            }
+        });
+
         // Кнопки вида
-        document.getElementById('viewBrief').addEventListener('click', () => this.setView(0));
-        document.getElementById('viewDetailed').addEventListener('click', () => this.setView(1));
-        document.getElementById('viewAll').addEventListener('click', () => this.setView(2));
+        document.getElementById('viewFocus').addEventListener('click', () => this.setView(0));
 
         // Фильтры и сортировка
         document.getElementById('filterSelect').addEventListener('change', (e) => {
@@ -302,6 +311,9 @@ class TechTreeApp {
 
         // Отображение
         techs.forEach(tech => {
+            const itemWrapper = document.createElement('div');
+            itemWrapper.className = 'tech-item-wrapper';
+
             const item = document.createElement('div');
             item.className = 'tech-item';
             item.textContent = tech.название;
@@ -317,8 +329,96 @@ class TechTreeApp {
                 this.selectTechnology(tech.название);
             });
 
-            listContainer.appendChild(item);
+            // Кнопка "?" для открытия справки по технологии
+            const helpButton = document.createElement('button');
+            helpButton.className = 'tech-help-button';
+            helpButton.textContent = '?';
+            helpButton.title = 'Открыть справку';
+            helpButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openTechHelp(tech.название);
+            });
+
+            itemWrapper.appendChild(item);
+            itemWrapper.appendChild(helpButton);
+            listContainer.appendChild(itemWrapper);
         });
+
+        // Обновляем счетчик и прогресс
+        this.updateProgressLabel();
+    }
+
+    searchTechnology() {
+        const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+        if (!searchQuery) {
+            return;
+        }
+
+        // Ищем технологию в списке
+        for (const tech of this.technologies) {
+            if (tech.название.toLowerCase().includes(searchQuery)) {
+                this.selectTechnology(tech.название);
+
+                // Прокручиваем к найденной технологии в списке
+                const listContainer = document.getElementById('techList');
+                const techItems = listContainer.querySelectorAll('.tech-item');
+                for (const item of techItems) {
+                    if (item.textContent === tech.название) {
+                        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        break;
+                    }
+                }
+                return;
+            }
+        }
+
+        alert(`Технология '${searchQuery}' не найдена`);
+    }
+
+    updateProgressLabel() {
+        const totalTechs = this.technologies.length;
+        const completedTechs = Object.values(this.progress).filter(v => v).length;
+        const progressPercent = totalTechs > 0 ? (completedTechs / totalTechs * 100).toFixed(2) : 0;
+
+        document.getElementById('progressLabel').textContent =
+            `Технологий: ${totalTechs} | Прогресс: ${progressPercent}%`;
+    }
+
+    openTechHelp(techName) {
+        // Проверяем, есть ли файл mhtml в папке web
+        // В веб-версии мы не можем напрямую проверить наличие файла,
+        // поэтому открываем Yandex поиск по умолчанию
+        const searchUrl = `https://yandex.ru/search?text=${encodeURIComponent(techName)}`;
+        window.open(searchUrl, '_blank');
+    }
+
+    async loadTreeFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            if (!data.технологии || !Array.isArray(data.технологии)) {
+                throw new Error('Неверный формат файла');
+            }
+
+            this.technologies = data.технологии;
+            this.progress = {};
+            this.selectedTech = null;
+
+            this.renderTechList();
+
+            if (this.technologies.length > 0) {
+                this.selectTechnology(this.technologies[0].название);
+            }
+
+            alert('Древо технологий успешно загружено!');
+        } catch (error) {
+            console.error('Error loading tree from file:', error);
+            alert('Ошибка загрузки файла: ' + error.message);
+        }
     }
 
     getTechStatus(techName) {
@@ -553,8 +653,7 @@ class TechTreeApp {
             btn.classList.toggle('active', i === viewIndex);
         });
 
-        // В текущей реализации все виды показывают одинаковый граф
-        // Можно добавить разную логику для разных видов
+        // Фокусировка - показываем выбранную технологию
         if (this.selectedTech) {
             this.loadTechTree(this.selectedTech);
         }

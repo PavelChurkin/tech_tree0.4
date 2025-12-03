@@ -11,6 +11,8 @@
         <header>
             <h1>Технологическое древо</h1>
             <div class="controls">
+                <label for="fileUpload" class="btn btn-primary" style="margin: 0;">Загрузить древо</label>
+                <input type="file" id="fileUpload" accept=".json" style="display: none;">
                 <button id="saveProgress" class="btn btn-primary">Сохранить прогресс</button>
                 <button id="loadProgress" class="btn btn-secondary">Загрузить прогресс</button>
                 <button id="resetProgress" class="btn btn-danger">Сбросить прогресс</button>
@@ -32,6 +34,13 @@
                 <div class="tech-list-panel">
                     <div class="list-controls">
                         <h3>Список технологий</h3>
+                        <div class="search-bar">
+                            <input type="text" id="searchInput" placeholder="Поиск технологии..." class="search-input">
+                            <button id="searchButton" class="btn btn-secondary">Найти</button>
+                        </div>
+                        <div class="progress-info">
+                            <span id="progressLabel">Технологий: 0 | Прогресс: 0.00%</span>
+                        </div>
                         <div class="filters">
                             <select id="filterSelect" class="filter-select">
                                 <option value="all">Все технологии</option>
@@ -57,9 +66,7 @@
                 <div class="visualization-controls">
                     <h3>Визуализация</h3>
                     <div class="view-buttons">
-                        <button id="viewBrief" class="btn btn-view active">Кратко</button>
-                        <button id="viewDetailed" class="btn btn-view">Подробно</button>
-                        <button id="viewAll" class="btn btn-view">Всё</button>
+                        <button id="viewFocus" class="btn btn-view active">Фокусировка</button>
                     </div>
                 </div>
                 <div id="visualization" class="visualization">
