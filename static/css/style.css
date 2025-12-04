@@ -453,6 +453,48 @@ header h1 {
     }
 }
 
+/* Fullscreen mode */
+.container.fullscreen-mode header,
+.container.fullscreen-mode .left-panel,
+.container.fullscreen-mode .legend,
+.container.fullscreen-mode .help-button {
+    display: none !important;
+}
+
+.container.fullscreen-mode .main-content {
+    padding: 0;
+    gap: 0;
+}
+
+.container.fullscreen-mode .right-panel {
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+    padding: 0.5rem;
+}
+
+.container.fullscreen-mode .visualization-controls {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 10;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.container.fullscreen-mode .visualization-controls h3 {
+    display: none;
+}
+
+.container.fullscreen-mode .visualization {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
 /* Scrollbar styles */
 ::-webkit-scrollbar {
     width: 8px;
