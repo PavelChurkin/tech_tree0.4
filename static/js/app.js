@@ -384,12 +384,26 @@ class TechTreeApp {
             `Технологий: ${totalTechs} | Прогресс: ${progressPercent}%`;
     }
 
-    openTechHelp(techName) {
-        // Проверяем, есть ли файл mhtml в папке web
-        // В веб-версии мы не можем напрямую проверить наличие файла,
-        // поэтому открываем Yandex поиск по умолчанию
-        const searchUrl = `https://yandex.ru/search?text=${encodeURIComponent(techName)}`;
-        window.open(searchUrl, '_blank');
+    async openTechHelp(techName) {
+        try {
+            // Проверяем наличие mhtml файла для технологии
+            const response = await fetch(`/api/tech_help/${encodeURIComponent(techName)}`);
+            const data = await response.json();
+
+            if (data.exists) {
+                // Если файл существует, открываем его
+                window.open(`/web/${data.filename}`, '_blank');
+            } else {
+                // Если файла нет, открываем Yandex поиск
+                const searchUrl = `https://yandex.ru/search?text=${encodeURIComponent(techName)}`;
+                window.open(searchUrl, '_blank');
+            }
+        } catch (error) {
+            console.error('Error checking tech help:', error);
+            // В случае ошибки открываем Yandex поиск
+            const searchUrl = `https://yandex.ru/search?text=${encodeURIComponent(techName)}`;
+            window.open(searchUrl, '_blank');
+        }
     }
 
     async loadTreeFromFile(event) {
@@ -607,33 +621,52 @@ class TechTreeApp {
     drawArrow(ctx, fromX, fromY, toX, toY) {
         const headlen = 15 / this.viewTransform.scale;
         const angle = Math.atan2(toY - fromY, toX - fromX);
-
-        // Укорачиваем линию, чтобы не заходила в круги
         const nodeRadius = 40;
-        const fromDist = nodeRadius;
-        const toDist = nodeRadius;
 
-        const fromXAdj = fromX + Math.cos(angle) * fromDist;
-        const fromYAdj = fromY + Math.sin(angle) * fromDist;
-        const toXAdj = toX - Math.cos(angle) * toDist;
-        const toYAdj = toY - Math.sin(angle) * toDist;
+        // Вычисляем начальную и конечную точки стрелки (на границе кругов)
+        const fromXAdj = fromX + Math.cos(angle) * nodeRadius;
+        const fromYAdj = fromY + Math.sin(angle) * nodeRadius;
+        const toXAdj = toX - Math.cos(angle) * nodeRadius;
+        const toYAdj = toY - Math.sin(angle) * nodeRadius;
 
+        // Вычисляем контрольную точку для кривой Безье
+        // Размещаем её перпендикулярно к середине линии для создания изгиба
+        const midX = (fromXAdj + toXAdj) / 2;
+        const midY = (fromYAdj + toYAdj) / 2;
+
+        // Вектор, перпендикулярный к линии
+        const perpAngle = angle + Math.PI / 2;
+
+        // Величина изгиба зависит от расстояния между узлами
+        const distance = Math.hypot(toX - fromX, toY - fromY);
+        const curvature = Math.min(distance * 0.15, 50); // Ограничиваем максимальный изгиб
+
+        const controlX = midX + Math.cos(perpAngle) * curvature;
+        const controlY = midY + Math.sin(perpAngle) * curvature;
+
+        // Рисуем кривую
         ctx.beginPath();
         ctx.moveTo(fromXAdj, fromYAdj);
-        ctx.lineTo(toXAdj, toYAdj);
+        ctx.quadraticCurveTo(controlX, controlY, toXAdj, toYAdj);
         ctx.stroke();
 
-        // Стрелка
+        // Вычисляем угол стрелки в конечной точке (касательная к кривой)
+        const t = 1; // В конечной точке
+        const tangentX = 2 * (1 - t) * (controlX - fromXAdj) + 2 * t * (toXAdj - controlX);
+        const tangentY = 2 * (1 - t) * (controlY - fromYAdj) + 2 * t * (toYAdj - controlY);
+        const endAngle = Math.atan2(tangentY, tangentX);
+
+        // Рисуем стрелку
         ctx.beginPath();
         ctx.moveTo(toXAdj, toYAdj);
         ctx.lineTo(
-            toXAdj - headlen * Math.cos(angle - Math.PI / 6),
-            toYAdj - headlen * Math.sin(angle - Math.PI / 6)
+            toXAdj - headlen * Math.cos(endAngle - Math.PI / 6),
+            toYAdj - headlen * Math.sin(endAngle - Math.PI / 6)
         );
         ctx.moveTo(toXAdj, toYAdj);
         ctx.lineTo(
-            toXAdj - headlen * Math.cos(angle + Math.PI / 6),
-            toYAdj - headlen * Math.sin(angle + Math.PI / 6)
+            toXAdj - headlen * Math.cos(endAngle + Math.PI / 6),
+            toYAdj - headlen * Math.sin(endAngle + Math.PI / 6)
         );
         ctx.stroke();
     }

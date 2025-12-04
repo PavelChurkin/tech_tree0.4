@@ -190,6 +190,29 @@ def check_availability():
 
     return jsonify(result)
 
+@app.route('/api/tech_help/<tech_name>')
+def check_tech_help(tech_name):
+    """Проверить наличие mhtml файла для технологии и вернуть информацию о нём"""
+    web_dir = os.path.join(BASE_DIR, 'web')
+
+    # Проверяем существование директории web
+    if not os.path.exists(web_dir):
+        return jsonify({'exists': False})
+
+    # Ищем mhtml файл с названием технологии
+    mhtml_file = os.path.join(web_dir, f'{tech_name}.mhtml')
+
+    if os.path.exists(mhtml_file):
+        return jsonify({'exists': True, 'filename': f'{tech_name}.mhtml'})
+
+    return jsonify({'exists': False})
+
+@app.route('/web/<filename>')
+def serve_web_file(filename):
+    """Отдать mhtml файл из папки web"""
+    web_dir = os.path.join(BASE_DIR, 'web')
+    return send_from_directory(web_dir, filename)
+
 if __name__ == '__main__':
     # Запуск сервера
     # Для разработки используем debug=True
