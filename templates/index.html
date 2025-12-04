@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Технологическое древо</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Технологическое древо</h1>
+            <div class="controls">
+                <label for="fileUpload" class="btn btn-primary" style="margin: 0; cursor: pointer;">Загрузить древо</label>
+                <input type="file" id="fileUpload" accept=".json" style="display: none;">
+                <button id="saveProgress" class="btn btn-primary">Сохранить прогресс</button>
+                <button id="loadProgress" class="btn btn-secondary">Загрузить прогресс</button>
+                <button id="resetProgress" class="btn btn-danger">Сбросить прогресс</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Левая панель: Описание и список технологий -->
+            <div class="left-panel">
+                <!-- Описание выбранной технологии -->
+                <div class="description-panel">
+                    <h2>Описание технологии</h2>
+                    <div id="techDescription" class="tech-description">
+                        Выберите технологию из списка
+                    </div>
+                </div>
+
+                <!-- Список технологий -->
+                <div class="tech-list-panel">
+                    <div class="list-controls">
+                        <h3>Список технологий</h3>
+                        <div class="search-bar">
+                            <input type="text" id="searchInput" placeholder="Поиск технологии..." class="search-input">
+                            <button id="searchButton" class="btn btn-secondary">Найти</button>
+                        </div>
+                        <div class="progress-info">
+                            <span id="progressLabel">Технологий: 0 | Прогресс: 0.00%</span>
+                        </div>
+                        <div class="filters">
+                            <select id="filterSelect" class="filter-select">
+                                <option value="all">Все технологии</option>
+                                <option value="available">Доступные</option>
+                                <option value="completed">Выполненные</option>
+                                <option value="unavailable">Недоступные</option>
+                            </select>
+                            <select id="sortSelect" class="sort-select">
+                                <option value="default">По умолчанию</option>
+                                <option value="alphabet">По алфавиту</option>
+                                <option value="status">По статусу</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="techList" class="tech-list">
+                        <!-- Список будет заполнен динамически -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правая панель: Визуализация древа -->
+            <div class="right-panel">
+                <div class="visualization-controls">
+                    <h3>Визуализация</h3>
+                    <div class="view-buttons">
+                        <button id="viewFocus" class="btn btn-view active">Фокусировка</button>
+                    </div>
+                </div>
+                <div id="visualization" class="visualization">
+                    <!-- Визуализация будет здесь -->
+                    <canvas id="techCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Легенда -->
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color completed"></span>
+                <span>Выполнено</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color available"></span>
+                <span>Доступно</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color unavailable"></span>
+                <span>Недоступно</span>
+            </div>
+        </div>
+
+        <!-- Инструкция -->
+        <div class="help-panel" id="helpPanel">
+            <h3>Справка</h3>
+            <ul>
+                <li><strong>Клик по технологии</strong> в списке - показать описание и визуализацию</li>
+                <li><strong>Клик по узлу</strong> на графе - выбрать технологию</li>
+                <li><strong>Правый клик (долгое нажатие на мобильном)</strong> на узле - отметить как выполненное/невыполненное</li>
+                <li><strong>Зажать и тянуть</strong> - перемещение по графу</li>
+                <li><strong>Масштабирование</strong> - колесо мыши или жесты на мобильном</li>
+                <li><strong>Цвета</strong>: Зеленый - выполнено, Желтый - доступно, Красный - недоступно</li>
+            </ul>
+            <button id="closeHelp" class="btn btn-secondary">Закрыть</button>
+        </div>
+
+        <button id="helpButton" class="help-button" title="Справка">?</button>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
