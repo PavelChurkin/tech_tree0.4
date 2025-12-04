@@ -211,7 +211,11 @@ def check_tech_help(tech_name):
 def serve_web_file(filename):
     """Отдать mhtml файл из папки web"""
     web_dir = os.path.join(BASE_DIR, 'web')
-    return send_from_directory(web_dir, filename)
+    # Устанавливаем правильный MIME тип и Content-Disposition для открытия в браузере
+    response = send_from_directory(web_dir, filename)
+    response.headers['Content-Type'] = 'multipart/related'
+    response.headers['Content-Disposition'] = 'inline'
+    return response
 
 if __name__ == '__main__':
     # Запуск сервера
