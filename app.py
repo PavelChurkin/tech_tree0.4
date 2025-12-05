@@ -8,13 +8,109 @@
 from flask import Flask, render_template, jsonify, request, send_from_directory
 import json
 import os
+import sqlite3
 from collections import deque
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
 # Путь к текущей директории
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Путь к базе данных
+DB_PATH = os.path.join(BASE_DIR, 'progress.db')
+
+# Инициализация базы данных
+def init_db():
+    """Инициализация базы данных SQLite для хранения прогресса"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Создаем таблицу для хранения прогресса пользователей
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_ip TEXT NOT NULL,
+            tech_name TEXT NOT NULL,
+            completed INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_ip, tech_name)
+        )
+    ''')
+
+    # Создаем индекс для быстрого поиска по IP
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_user_ip
+        ON user_progress(user_ip)
+    ''')
+
+    conn.commit()
+    conn.close()
+
+# Функция для получения IP адреса клиента
+def get_client_ip():
+    """Получить IP адрес клиента с учетом прокси"""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    elif request.headers.get('X-Real-IP'):
+        return request.headers.get('X-Real-IP')
+    else:
+        return request.remote_addr
+
+# Функция для сохранения прогресса в базу данных
+def save_progress_to_db(user_ip, progress_data):
+    """
+    Сохранить прогресс пользователя в базу данных
+    progress_data: dict {tech_name: bool}
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        # Удаляем старый прогресс пользователя
+        cursor.execute('DELETE FROM user_progress WHERE user_ip = ?', (user_ip,))
+
+        # Вставляем новый прогресс
+        for tech_name, completed in progress_data.items():
+            cursor.execute('''
+                INSERT INTO user_progress (user_ip, tech_name, completed, updated_at)
+                VALUES (?, ?, ?, ?)
+            ''', (user_ip, tech_name, 1 if completed else 0, datetime.now()))
+
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving progress: {e}")
+        return False
+    finally:
+        conn.close()
+
+# Функция для загрузки прогресса из базы данных
+def load_progress_from_db(user_ip):
+    """
+    Загрузить прогресс пользователя из базы данных
+    Возвращает: dict {tech_name: bool}
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT tech_name, completed
+            FROM user_progress
+            WHERE user_ip = ? AND completed = 1
+        ''', (user_ip,))
+
+        rows = cursor.fetchall()
+        progress = {tech_name: bool(completed) for tech_name, completed in rows}
+        return progress
+    except Exception as e:
+        print(f"Error loading progress: {e}")
+        return {}
+    finally:
+        conn.close()
 
 # Загрузка данных из JSON файла
 def load_tech_data():
@@ -217,7 +313,34 @@ def serve_web_file(filename):
     response.headers['Content-Disposition'] = 'inline'
     return response
 
+@app.route('/api/progress/save', methods=['POST'])
+def save_progress():
+    """Сохранить прогресс пользователя в базу данных"""
+    try:
+        user_ip = get_client_ip()
+        progress_data = request.json.get('progress', {})
+
+        if save_progress_to_db(user_ip, progress_data):
+            return jsonify({'success': True, 'message': 'Прогресс успешно сохранен'})
+        else:
+            return jsonify({'success': False, 'message': 'Ошибка сохранения прогресса'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/progress/load', methods=['GET'])
+def load_progress():
+    """Загрузить прогресс пользователя из базы данных"""
+    try:
+        user_ip = get_client_ip()
+        progress_data = load_progress_from_db(user_ip)
+        return jsonify({'success': True, 'progress': progress_data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 if __name__ == '__main__':
+    # Инициализация базы данных
+    init_db()
+
     # Запуск сервера
     # Для разработки используем debug=True
     # Для продакшена используйте gunicorn или uwsgi

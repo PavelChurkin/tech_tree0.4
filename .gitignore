@@ -40,3 +40,8 @@ Thumbs.db
 
 # Web help files (user-specific mhtml files)
 web/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
