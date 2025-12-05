@@ -513,7 +513,7 @@ class TechTreeApp {
             techs.forEach((tech, i) => {
                 this.nodePositions[tech] = {
                     x: startX + i * 300,
-                    y: parseInt(level) * 200
+                    y: -parseInt(level) * 200  // Parents above (negative Y)
                 };
             });
         }
@@ -532,7 +532,7 @@ class TechTreeApp {
             techs.forEach((tech, i) => {
                 this.nodePositions[tech] = {
                     x: startX + i * 300,
-                    y: -parseInt(level) * 200
+                    y: parseInt(level) * 200  // Children below (positive Y)
                 };
             });
         }
@@ -682,11 +682,27 @@ class TechTreeApp {
         ctx.stroke();
     }
 
-    toggleTechProgress(techName) {
+    async toggleTechProgress(techName) {
         this.progress[techName] = !this.progress[techName];
         this.renderTechList();
         this.renderGraph();
-        this.saveProgress();
+
+        // Автоматически сохраняем прогресс в базу данных
+        try {
+            await fetch('/api/progress/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ progress: this.progress })
+            });
+            // Также сохраняем в localStorage как резервную копию
+            localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
+        } catch (error) {
+            console.error('Error auto-saving progress:', error);
+            // При ошибке сохраняем хотя бы в localStorage
+            localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
+        }
     }
 
     setView(viewIndex) {
@@ -725,22 +741,76 @@ class TechTreeApp {
         }, 100);
     }
 
-    saveProgress() {
-        localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
-        alert('Прогресс сохранен!');
+    async saveProgress() {
+        try {
+            // Сохраняем в базу данных
+            const response = await fetch('/api/progress/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ progress: this.progress })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                // Также сохраняем в localStorage как резервную копию
+                localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
+                alert('Прогресс сохранен в базу данных!');
+            } else {
+                alert('Ошибка сохранения: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error saving progress:', error);
+            // При ошибке сохраняем хотя бы в localStorage
+            localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
+            alert('Ошибка сохранения в базу данных. Прогресс сохранен локально.');
+        }
     }
 
-    loadProgress(showAlert = false) {
-        const saved = localStorage.getItem('techTreeProgress');
-        if (saved) {
-            this.progress = JSON.parse(saved);
-            this.renderTechList();
-            this.renderGraph();
-            if (showAlert) {
-                alert('Прогресс загружен!');
+    async loadProgress(showAlert = false) {
+        try {
+            // Загружаем из базы данных
+            const response = await fetch('/api/progress/load');
+            const data = await response.json();
+
+            if (data.success && Object.keys(data.progress).length > 0) {
+                this.progress = data.progress;
+                this.renderTechList();
+                this.renderGraph();
+                // Также сохраняем в localStorage как резервную копию
+                localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
+                if (showAlert) {
+                    alert('Прогресс загружен из базы данных!');
+                }
+            } else {
+                // Если в базе ничего нет, пробуем загрузить из localStorage
+                const saved = localStorage.getItem('techTreeProgress');
+                if (saved) {
+                    this.progress = JSON.parse(saved);
+                    this.renderTechList();
+                    this.renderGraph();
+                    if (showAlert) {
+                        alert('Прогресс загружен из локального хранилища!');
+                    }
+                } else if (showAlert) {
+                    alert('Сохраненный прогресс не найден');
+                }
             }
-        } else if (showAlert) {
-            alert('Сохраненный прогресс не найден');
+        } catch (error) {
+            console.error('Error loading progress:', error);
+            // При ошибке пробуем загрузить из localStorage
+            const saved = localStorage.getItem('techTreeProgress');
+            if (saved) {
+                this.progress = JSON.parse(saved);
+                this.renderTechList();
+                this.renderGraph();
+                if (showAlert) {
+                    alert('Прогресс загружен из локального хранилища (ошибка доступа к базе данных)');
+                }
+            } else if (showAlert) {
+                alert('Ошибка загрузки прогресса');
+            }
         }
     }
 
