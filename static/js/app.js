@@ -15,6 +15,7 @@ class TechTreeApp {
         this.isDragging = false;
         this.dragStart = { x: 0, y: 0 };
         this.nodePositions = {};
+        this.isFullscreen = false;
 
         this.init();
     }
@@ -65,6 +66,7 @@ class TechTreeApp {
 
         // Кнопки вида
         document.getElementById('viewFocus').addEventListener('click', () => this.setView(0));
+        document.getElementById('viewFullscreen').addEventListener('click', () => this.toggleFullscreen());
 
         // Фильтры и сортировка
         document.getElementById('filterSelect').addEventListener('change', (e) => {
@@ -537,9 +539,18 @@ class TechTreeApp {
     }
 
     centerView() {
-        this.viewTransform.x = this.canvas.width / 2;
-        this.viewTransform.y = this.canvas.height / 2;
-        this.viewTransform.scale = 1;
+        // Center on the selected technology node
+        if (this.selectedTech && this.nodePositions[this.selectedTech]) {
+            const node = this.nodePositions[this.selectedTech];
+            this.viewTransform.x = this.canvas.width / 2 - node.x;
+            this.viewTransform.y = this.canvas.height / 2 - node.y;
+            this.viewTransform.scale = 1;
+        } else {
+            // Fallback to center of canvas
+            this.viewTransform.x = this.canvas.width / 2;
+            this.viewTransform.y = this.canvas.height / 2;
+            this.viewTransform.scale = 1;
+        }
     }
 
     renderGraph() {
@@ -690,6 +701,28 @@ class TechTreeApp {
         if (this.selectedTech) {
             this.loadTechTree(this.selectedTech);
         }
+    }
+
+    toggleFullscreen() {
+        this.isFullscreen = !this.isFullscreen;
+        const container = document.querySelector('.container');
+        const fullscreenBtn = document.getElementById('viewFullscreen');
+
+        if (this.isFullscreen) {
+            container.classList.add('fullscreen-mode');
+            fullscreenBtn.textContent = 'Свернуть';
+            fullscreenBtn.classList.add('active');
+        } else {
+            container.classList.remove('fullscreen-mode');
+            fullscreenBtn.textContent = 'На весь экран';
+            fullscreenBtn.classList.remove('active');
+        }
+
+        // Resize canvas after transition
+        setTimeout(() => {
+            const resizeEvent = new Event('resize');
+            window.dispatchEvent(resizeEvent);
+        }, 100);
     }
 
     saveProgress() {
