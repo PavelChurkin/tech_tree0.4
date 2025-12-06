@@ -1,0 +1,53 @@
+2025-12-06 16:26:03,932 - app - INFO - Сохранение прогресса для IP: 192.168.1.100, технологий: 3
+2025-12-06 16:26:03,932 - app - DEBUG - Данные для сохранения: {'Кремень': True, 'Огонь': True, 'Копье': False}
+2025-12-06 16:26:03,938 - app - DEBUG - Таблица и индекс проверены/созданы
+2025-12-06 16:26:03,939 - app - DEBUG - Удалено старых записей: 0
+2025-12-06 16:26:03,941 - app - INFO - Успешно сохранено записей: 3
+2025-12-06 16:26:03,941 - app - INFO - Загрузка прогресса для IP: 192.168.1.100
+2025-12-06 16:26:03,941 - app - DEBUG - Таблица и индекс проверены/созданы
+2025-12-06 16:26:03,942 - app - INFO - Загружено технологий: 2
+2025-12-06 16:26:03,942 - app - DEBUG - Загруженный прогресс: {'Кремень': True, 'Огонь': True}
+2025-12-06 16:26:03,942 - app - INFO - Загрузка прогресса для IP: 192.168.1.100
+2025-12-06 16:26:03,946 - app - DEBUG - Таблица и индекс проверены/созданы
+2025-12-06 16:26:03,946 - app - INFO - Загружено технологий: 0
+2025-12-06 16:26:03,946 - app - DEBUG - Загруженный прогресс: {}
+============================================================
+Test: Automatic Table Creation (without init_db)
+============================================================
+
+Test database path: /tmp/tmpre3xnh17/test_progress.db
+
+[Step 1] Initial state check
+✓ Database doesn't exist yet
+
+[Step 2] Save progress without calling init_db()
+✓ Saved 3 technologies for IP 192.168.1.100
+
+[Step 3] Verify database and table creation
+✓ Database file created: /tmp/tmpre3xnh17/test_progress.db
+✓ Table 'user_progress' exists
+✓ Index 'idx_user_ip' exists
+✓ Saved 3 records
+
+[Step 4] Load progress
+✓ Loaded 2 completed technologies
+  Progress: {'Кремень': True, 'Огонь': True}
+
+[Step 5] Test load with fresh database (no init_db)
+✓ Database deleted
+✓ Database and table created by load_progress_from_db
+✓ Empty progress returned: {}
+✓ Table created automatically by load operation
+
+============================================================
+✅ ALL TESTS PASSED!
+============================================================
+
+Summary:
+- Table is created automatically on save operation
+- Table is created automatically on load operation
+- No need to call init_db() explicitly
+- This will work on production servers (gunicorn/uwsgi)
+============================================================
+
+🧹 Cleanup: Removed test directory /tmp/tmpre3xnh17

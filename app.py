@@ -11,9 +11,17 @@ import os
 import sqlite3
 from collections import deque
 from datetime import datetime
+import logging
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Путь к текущей директории
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,29 +32,44 @@ DB_PATH = os.path.join(BASE_DIR, 'progress.db')
 # Инициализация базы данных
 def init_db():
     """Инициализация базы данных SQLite для хранения прогресса"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    try:
+        logger.info(f"Инициализация базы данных: {DB_PATH}")
 
-    # Создаем таблицу для хранения прогресса пользователей
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_progress (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_ip TEXT NOT NULL,
-            tech_name TEXT NOT NULL,
-            completed INTEGER NOT NULL DEFAULT 0,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_ip, tech_name)
-        )
-    ''')
+        # Проверяем наличие директории
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            logger.info(f"Создана директория для БД: {db_dir}")
 
-    # Создаем индекс для быстрого поиска по IP
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_user_ip
-        ON user_progress(user_ip)
-    ''')
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
 
-    conn.commit()
-    conn.close()
+        # Создаем таблицу для хранения прогресса пользователей
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ip TEXT NOT NULL,
+                tech_name TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_ip, tech_name)
+            )
+        ''')
+
+        # Создаем индекс для быстрого поиска по IP
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_ip
+            ON user_progress(user_ip)
+        ''')
+
+        conn.commit()
+        conn.close()
+
+        logger.info("База данных успешно инициализирована")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка инициализации БД: {e}", exc_info=True)
+        return False
 
 # Функция для получения IP адреса клиента
 def get_client_ip():
@@ -64,28 +87,58 @@ def save_progress_to_db(user_ip, progress_data):
     Сохранить прогресс пользователя в базу данных
     progress_data: dict {tech_name: bool}
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     try:
+        logger.info(f"Сохранение прогресса для IP: {user_ip}, технологий: {len(progress_data)}")
+        logger.debug(f"Данные для сохранения: {progress_data}")
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Убеждаемся, что таблица существует перед операцией
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ip TEXT NOT NULL,
+                tech_name TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_ip, tech_name)
+            )
+        ''')
+
+        # Создаем индекс если не существует
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_ip
+            ON user_progress(user_ip)
+        ''')
+
+        conn.commit()
+        logger.debug("Таблица и индекс проверены/созданы")
+
         # Удаляем старый прогресс пользователя
         cursor.execute('DELETE FROM user_progress WHERE user_ip = ?', (user_ip,))
+        deleted_count = cursor.rowcount
+        logger.debug(f"Удалено старых записей: {deleted_count}")
 
         # Вставляем новый прогресс
+        inserted_count = 0
         for tech_name, completed in progress_data.items():
             cursor.execute('''
                 INSERT INTO user_progress (user_ip, tech_name, completed, updated_at)
                 VALUES (?, ?, ?, ?)
             ''', (user_ip, tech_name, 1 if completed else 0, datetime.now()))
+            inserted_count += 1
 
         conn.commit()
+        logger.info(f"Успешно сохранено записей: {inserted_count}")
+        conn.close()
         return True
     except Exception as e:
-        conn.rollback()
-        print(f"Error saving progress: {e}")
+        logger.error(f"Ошибка сохранения прогресса для {user_ip}: {e}", exc_info=True)
+        if 'conn' in locals():
+            conn.rollback()
+            conn.close()
         return False
-    finally:
-        conn.close()
 
 # Функция для загрузки прогресса из базы данных
 def load_progress_from_db(user_ip):
@@ -93,10 +146,33 @@ def load_progress_from_db(user_ip):
     Загрузить прогресс пользователя из базы данных
     Возвращает: dict {tech_name: bool}
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     try:
+        logger.info(f"Загрузка прогресса для IP: {user_ip}")
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Убеждаемся, что таблица существует перед операцией
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ip TEXT NOT NULL,
+                tech_name TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_ip, tech_name)
+            )
+        ''')
+
+        # Создаем индекс если не существует
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_ip
+            ON user_progress(user_ip)
+        ''')
+
+        conn.commit()
+        logger.debug("Таблица и индекс проверены/созданы")
+
         cursor.execute('''
             SELECT tech_name, completed
             FROM user_progress
@@ -105,12 +181,17 @@ def load_progress_from_db(user_ip):
 
         rows = cursor.fetchall()
         progress = {tech_name: bool(completed) for tech_name, completed in rows}
+
+        logger.info(f"Загружено технологий: {len(progress)}")
+        logger.debug(f"Загруженный прогресс: {progress}")
+
+        conn.close()
         return progress
     except Exception as e:
-        print(f"Error loading progress: {e}")
+        logger.error(f"Ошибка загрузки прогресса для {user_ip}: {e}", exc_info=True)
+        if 'conn' in locals():
+            conn.close()
         return {}
-    finally:
-        conn.close()
 
 # Загрузка данных из JSON файла
 def load_tech_data():
@@ -318,24 +399,104 @@ def save_progress():
     """Сохранить прогресс пользователя в базу данных"""
     try:
         user_ip = get_client_ip()
+        logger.info(f"Запрос на сохранение прогресса от IP: {user_ip}")
+        logger.debug(f"Headers: X-Forwarded-For={request.headers.get('X-Forwarded-For')}, X-Real-IP={request.headers.get('X-Real-IP')}, remote_addr={request.remote_addr}")
+
+        # Проверяем наличие данных
+        if not request.json:
+            logger.error("Нет JSON данных в запросе")
+            return jsonify({'success': False, 'message': 'Нет данных для сохранения'}), 400
+
         progress_data = request.json.get('progress', {})
+        logger.debug(f"Получено технологий для сохранения: {len(progress_data)}")
+
+        # Убеждаемся, что БД инициализирована
+        if not os.path.exists(DB_PATH):
+            logger.warning("БД не существует, инициализируем...")
+            init_db()
 
         if save_progress_to_db(user_ip, progress_data):
-            return jsonify({'success': True, 'message': 'Прогресс успешно сохранен'})
+            return jsonify({
+                'success': True,
+                'message': f'Прогресс успешно сохранен для IP: {user_ip}',
+                'saved_count': len(progress_data),
+                'user_ip': user_ip
+            })
         else:
-            return jsonify({'success': False, 'message': 'Ошибка сохранения прогресса'}), 500
+            logger.error("save_progress_to_db вернула False")
+            return jsonify({'success': False, 'message': 'Ошибка сохранения прогресса в БД'}), 500
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Исключение при сохранении прогресса: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f'Ошибка сервера: {str(e)}'}), 500
 
 @app.route('/api/progress/load', methods=['GET'])
 def load_progress():
     """Загрузить прогресс пользователя из базы данных"""
     try:
         user_ip = get_client_ip()
+        logger.info(f"Запрос на загрузку прогресса от IP: {user_ip}")
+        logger.debug(f"Headers: X-Forwarded-For={request.headers.get('X-Forwarded-For')}, X-Real-IP={request.headers.get('X-Real-IP')}, remote_addr={request.remote_addr}")
+
+        # Убеждаемся, что БД инициализирована
+        if not os.path.exists(DB_PATH):
+            logger.warning("БД не существует, инициализируем...")
+            init_db()
+
         progress_data = load_progress_from_db(user_ip)
-        return jsonify({'success': True, 'progress': progress_data})
+        return jsonify({
+            'success': True,
+            'progress': progress_data,
+            'loaded_count': len(progress_data),
+            'user_ip': user_ip
+        })
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Исключение при загрузке прогресса: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f'Ошибка сервера: {str(e)}'}), 500
+
+@app.route('/api/debug/db_status', methods=['GET'])
+def db_status():
+    """Отладочный endpoint для проверки состояния базы данных"""
+    try:
+        status = {
+            'db_path': DB_PATH,
+            'db_exists': os.path.exists(DB_PATH),
+            'db_size': os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0,
+            'db_writable': os.access(os.path.dirname(DB_PATH) or '.', os.W_OK),
+        }
+
+        if os.path.exists(DB_PATH):
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+
+                # Проверяем наличие таблицы
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_progress'")
+                table_exists = cursor.fetchone() is not None
+                status['table_exists'] = table_exists
+
+                if table_exists:
+                    # Получаем количество записей
+                    cursor.execute("SELECT COUNT(*) FROM user_progress")
+                    status['total_records'] = cursor.fetchone()[0]
+
+                    # Получаем количество уникальных пользователей
+                    cursor.execute("SELECT COUNT(DISTINCT user_ip) FROM user_progress")
+                    status['unique_users'] = cursor.fetchone()[0]
+
+                    # Получаем прогресс текущего пользователя
+                    user_ip = get_client_ip()
+                    cursor.execute("SELECT COUNT(*) FROM user_progress WHERE user_ip = ?", (user_ip,))
+                    status['current_user_records'] = cursor.fetchone()[0]
+                    status['current_user_ip'] = user_ip
+
+                conn.close()
+            except Exception as e:
+                status['db_error'] = str(e)
+
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Ошибка в db_status: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Инициализация базы данных
