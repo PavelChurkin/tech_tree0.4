@@ -682,27 +682,13 @@ class TechTreeApp {
         ctx.stroke();
     }
 
-    async toggleTechProgress(techName) {
+    toggleTechProgress(techName) {
         this.progress[techName] = !this.progress[techName];
         this.renderTechList();
         this.renderGraph();
 
-        // Автоматически сохраняем прогресс в базу данных
-        try {
-            await fetch('/api/progress/save', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ progress: this.progress })
-            });
-            // Также сохраняем в localStorage как резервную копию
-            localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
-        } catch (error) {
-            console.error('Error auto-saving progress:', error);
-            // При ошибке сохраняем хотя бы в localStorage
-            localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
-        }
+        // Сохраняем в localStorage для автосохранения локально
+        localStorage.setItem('techTreeProgress', JSON.stringify(this.progress));
     }
 
     setView(viewIndex) {

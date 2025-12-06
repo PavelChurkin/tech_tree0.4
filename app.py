@@ -400,6 +400,7 @@ def save_progress():
     try:
         user_ip = get_client_ip()
         logger.info(f"Запрос на сохранение прогресса от IP: {user_ip}")
+        logger.debug(f"Headers: X-Forwarded-For={request.headers.get('X-Forwarded-For')}, X-Real-IP={request.headers.get('X-Real-IP')}, remote_addr={request.remote_addr}")
 
         # Проверяем наличие данных
         if not request.json:
@@ -417,8 +418,9 @@ def save_progress():
         if save_progress_to_db(user_ip, progress_data):
             return jsonify({
                 'success': True,
-                'message': 'Прогресс успешно сохранен',
-                'saved_count': len(progress_data)
+                'message': f'Прогресс успешно сохранен для IP: {user_ip}',
+                'saved_count': len(progress_data),
+                'user_ip': user_ip
             })
         else:
             logger.error("save_progress_to_db вернула False")
@@ -433,6 +435,7 @@ def load_progress():
     try:
         user_ip = get_client_ip()
         logger.info(f"Запрос на загрузку прогресса от IP: {user_ip}")
+        logger.debug(f"Headers: X-Forwarded-For={request.headers.get('X-Forwarded-For')}, X-Real-IP={request.headers.get('X-Real-IP')}, remote_addr={request.remote_addr}")
 
         # Убеждаемся, что БД инициализирована
         if not os.path.exists(DB_PATH):
@@ -443,7 +446,8 @@ def load_progress():
         return jsonify({
             'success': True,
             'progress': progress_data,
-            'loaded_count': len(progress_data)
+            'loaded_count': len(progress_data),
+            'user_ip': user_ip
         })
     except Exception as e:
         logger.error(f"Исключение при загрузке прогресса: {e}", exc_info=True)
