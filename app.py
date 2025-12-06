@@ -94,6 +94,27 @@ def save_progress_to_db(user_ip, progress_data):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
+        # Убеждаемся, что таблица существует перед операцией
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ip TEXT NOT NULL,
+                tech_name TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_ip, tech_name)
+            )
+        ''')
+
+        # Создаем индекс если не существует
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_ip
+            ON user_progress(user_ip)
+        ''')
+
+        conn.commit()
+        logger.debug("Таблица и индекс проверены/созданы")
+
         # Удаляем старый прогресс пользователя
         cursor.execute('DELETE FROM user_progress WHERE user_ip = ?', (user_ip,))
         deleted_count = cursor.rowcount
@@ -130,6 +151,27 @@ def load_progress_from_db(user_ip):
 
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+
+        # Убеждаемся, что таблица существует перед операцией
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ip TEXT NOT NULL,
+                tech_name TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_ip, tech_name)
+            )
+        ''')
+
+        # Создаем индекс если не существует
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_ip
+            ON user_progress(user_ip)
+        ''')
+
+        conn.commit()
+        logger.debug("Таблица и индекс проверены/созданы")
 
         cursor.execute('''
             SELECT tech_name, completed
