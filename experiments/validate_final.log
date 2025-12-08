@@ -1,0 +1,114 @@
+Loading techno2.json...
+
+================================================================================
+VALIDATION REPORT
+================================================================================
+
+Total technologies: 484
+Unique technology names: 484
+✓ No duplicates found
+✓ All technologies have descriptions
+
+❌ MISSING DEPENDENCIES: 74
+  - Амперметр depends on non-existent 'Магнит'
+  - Вольтметр depends on non-existent 'Магнит'
+  - Компас depends on non-existent 'Магнит'
+  - Магнетрон depends on non-existent 'Магнит'
+  - Микрофон depends on non-existent 'Магнит'
+  - Наждачная бумага depends on non-existent 'Клей'
+  - Наушники depends on non-existent 'Магнит'
+  - Фанера depends on non-existent 'Клей'
+  - Электрогенератор depends on non-existent 'Магнит'
+  - Электродвигатель depends on non-existent 'Магнит'
+  ... and 64 more
+✓ No direct cycles found
+
+================================================================================
+STATISTICS
+================================================================================
+
+Technologies by dependency count:
+  0 dependencies: 6 technologies
+  1 dependencies: 138 technologies
+  2 dependencies: 208 technologies
+  3 dependencies: 98 technologies
+  4 dependencies: 31 technologies
+  5 dependencies: 2 technologies
+  7 dependencies: 1 technologies
+
+Base technologies (no dependencies): 6
+  - Вода
+  - Земледелие
+  - Костёр
+  - Магнит природный
+  - Обработка камня
+  - Письменность
+
+Technologies with most dependencies:
+  - Радио: 7 dependencies
+  - Фрезерный станок: 5 dependencies
+  - Электродвигатель: 5 dependencies
+  - Бульдозер: 4 dependencies
+  - Водяная мельница: 4 dependencies
+
+================================================================================
+⚠️  VALIDATION COMPLETED WITH WARNINGS
+================================================================================
+
+Loading techno2.json...
+
+================================================================================
+VALIDATION REPORT
+================================================================================
+
+Total technologies: 484
+Unique technology names: 484
+✓ No duplicates found
+✓ All technologies have descriptions
+
+❌ MISSING DEPENDENCIES: 62
+  - Теплица depends on non-existent 'Стекло'
+  - Теплица depends on non-existent 'Печь'
+  - Комбайн depends on non-existent 'Металлообработка'
+  - Трактор depends on non-existent 'Металлообработка'
+  - Вентиляция шахт depends on non-existent 'Вентилятор'
+  - Буровые установки depends on non-existent 'Металлообработка'
+  - Гидроэлектростанция depends on non-existent 'Генератор электричества'
+  - Теплоэлектростанция depends on non-existent 'Генератор электричества'
+  - Атомная электростанция depends on non-existent 'Ядерная физика'
+  - Атомная электростанция depends on non-existent 'Генератор электричества'
+  ... and 52 more
+✓ No direct cycles found
+
+================================================================================
+STATISTICS
+================================================================================
+
+Technologies by dependency count:
+  0 dependencies: 6 technologies
+  1 dependencies: 138 technologies
+  2 dependencies: 208 technologies
+  3 dependencies: 98 technologies
+  4 dependencies: 31 technologies
+  5 dependencies: 2 technologies
+  7 dependencies: 1 technologies
+
+Base technologies (no dependencies): 6
+  - Вода
+  - Земледелие
+  - Костёр
+  - Магнит природный
+  - Обработка камня
+  - Письменность
+
+Technologies with most dependencies:
+  - Радио: 7 dependencies
+  - Фрезерный станок: 5 dependencies
+  - Электродвигатель: 5 dependencies
+  - Бульдозер: 4 dependencies
+  - Водяная мельница: 4 dependencies
+
+================================================================================
+⚠️  VALIDATION COMPLETED WITH WARNINGS
+================================================================================
+
