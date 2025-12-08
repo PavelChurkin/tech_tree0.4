@@ -1,0 +1,145 @@
+Loading techno2.json...
+Current technologies count: 405
+
+================================================================================
+PHASE 1: Fix illogical dependencies (critique points 7 and 13)
+================================================================================
+
+1. Fixing 'Клей' (Glue) - creating natural and synthetic versions...
+✓ Renamed 'Клей' to 'Клей синтетический'
+✓ Added: Клей природный
+
+2. Fixing 'Принтер' (Printer) dependencies...
+✓ Updated dependencies: Принтер
+
+3. Fixing 'Магнит' (Magnet) - creating natural and artificial versions...
+✓ Renamed 'Магнит' to 'Магнит природный'
+✓ Added: Магнит искусственный
+
+4. Fixing 'Стамеска' (Chisel) dependencies...
+✓ Updated dependencies: Стамеска
+
+================================================================================
+PHASE 2: Add missing technologies from critique point 4
+================================================================================
+
+--- Agriculture ---
+✓ Added: Севооборот
+✓ Added: Удобрения органические
+✓ Added: Ирригация капельная
+✓ Added: Теплица
+✓ Added: Селекция растений
+✓ Added: Орошение
+✓ Added: Дренаж
+✓ Added: Комбайн
+✓ Added: Трактор
+
+--- Mining ---
+✓ Added: Шахтные насосы
+✓ Added: Вентиляция шахт
+✓ Added: Взрывные работы
+✓ Added: Геологоразведка
+✓ Added: Буровые установки
+✓ Added: Шахтные подъёмники
+✓ Added: Обогащение руд
+✓ Added: Открытая разработка месторождений
+
+--- Energy ---
+✓ Added: Гидроэлектростанция
+✓ Added: Теплоэлектростанция
+✓ Added: Атомная электростанция
+✓ Added: Ветроэлектростанция
+✓ Added: Солнечная электростанция
+✓ Added: Аккумуляторные станции
+✓ Added: Линии электропередач высокого напряжения
+
+--- Communication ---
+✓ Added: Почта
+✓ Added: Телетайп
+
+--- Medicine ---
+✓ Added: Анатомия
+✓ Added: Хирургия
+✓ Added: Анестезия
+✓ Added: Асептика и антисептика
+✓ Added: Рентгенография
+✓ Added: Диагностическое оборудование
+✓ Added: Протезирование
+
+--- Food Industry ---
+✓ Added: Консервирование
+✓ Added: Пастеризация
+✓ Added: Заморозка
+✓ Added: Сушка
+✓ Added: Соление
+✓ Added: Вакуумная упаковка
+
+--- Tools ---
+✓ Added: Отвёртка
+✓ Added: Плоскогубцы
+✓ Added: Ключи гаечные
+
+--- Chemical Industry ---
+✓ Added: Производство щелочей
+✓ Added: Производство кислот
+✓ Added: Органический синтез
+✓ Added: Полимеризация
+✓ Added: Каталитические процессы
+✓ Added: Электрохимия
+
+--- Materials ---
+✓ Added: Композитные материалы
+✓ Added: Углеродное волокно
+✓ Added: Графен
+
+--- Military Technologies ---
+✓ Added: Лук и стрелы
+✓ Added: Арбалет
+✓ Added: Огнестрельное оружие
+✓ Added: Артиллерия
+✓ Added: Бронирование
+✓ Added: Радар
+✓ Added: Ракетное оружие
+
+================================================================================
+PHASE 3: Add intermediate technologies for smoother transitions
+================================================================================
+
+--- Basic Materials and Processes ---
+✓ Added: Детонатор
+✓ Added: Флотация
+  Skipped (exists): Дробилка
+  Skipped (exists): Экскаватор
+✓ Added: Плотина
+✓ Added: Турбина
+✓ Added: Паровая турбина
+✓ Added: Котёл
+  Skipped (exists): Инвертор
+✓ Added: Изолятор
+✓ Added: Печатная машинка
+✓ Added: Эфир
+✓ Added: Стерилизация
+✓ Added: Жестяная банка
+  Skipped (exists): Вакуумный насос
+✓ Added: Спусковой механизм
+✓ Added: Ствол
+  Skipped (exists): Ковш
+✓ Added: Лопасти
+✓ Added: Расточка
+✓ Added: Гусеница
+
+--- Updating dependencies for smoother transitions ---
+✓ Added: Иглы и нитки
+✓ Added: Строительство
+✓ Added: Листовой металл
+  Skipped (exists): Олово
+
+================================================================================
+SUMMARY
+================================================================================
+Technologies added: 79
+Technologies updated: 4
+Total technologies: 484
+
+Saving techno2.json...
+✓ Saved successfully!
